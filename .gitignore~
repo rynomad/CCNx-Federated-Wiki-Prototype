@@ -1,0 +1,12 @@
+.DS_Store
+*.swp
+*.iml
+.idea/
+.sass-cache
+.rvmrc
+/data
+/spec/data
+/client/plugins/*/test.js
+/client/chart/
+/client/garden/
+npm-debug.log

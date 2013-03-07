@@ -1,0 +1,20 @@
+  name = new Name('/sfw' + url)
+  closure = new ContentClosure(ndn, name, new Interest(name))
+  ndn.expressInterest(name, closure)
+  while closure.fullcontent == null
+    console.log('waiting')
+    whenGotten(page.site)
+  
+
+  page = closure.fullcontent
+  console.log(page)
+  page = JSON.parse(closure.fullcontent)
+  console.log(page)
+
+  whenGotten(page,site)
+
+
+  await 
+      closure = new ContentClosure(ndn, name, new Interest(name))
+      ndn.expressInterest(name, closure) defer closure.fullcontent
+  alert closure.fullcontent
