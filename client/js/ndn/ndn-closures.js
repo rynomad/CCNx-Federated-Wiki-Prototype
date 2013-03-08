@@ -25,6 +25,7 @@ var ContentClosure = function ContentClosure
     this.name = name;
     this.segmentTemplate = segmentTemplate;
     this.callback = callback
+    
 
 
     this.segmentStore = new SegmentStore();
@@ -164,7 +165,10 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
             this.done = true;
             console.log('kinda hungry');
             console.log(this.fullcontent);
-            this.callback()
+	    var fc = this.fullcontent;
+	    console.log('$$$$', fc);
+            this.callback(this.fullcontent);
+	    
             return Closure.RESULT_OK;
         }
     }

@@ -3,7 +3,6 @@ state = require('./state.coffee')
 revision = require('./revision.coffee')
 addToJournal = require('./addToJournal.coffee')
 step = require('step')
-ndnClosures = require('./ndnClosures')
 
 
 module.exports = pageHandler = {}
@@ -37,7 +36,7 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext}) ->
       if site == 'origin'
         url = "/#{slug}.json"
       else
-        url = "http://#{site}/#{slug}.json"
+        url = "#{site}/#{slug}.json"
   else
     url = "/#{slug}.json"
 
@@ -60,21 +59,20 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext}) ->
   ndn = new NDN({host: 'localhost'})
   name = new Name('/sfw' + url)
   interest = new Interest(name)
-#  callback = (site) ->
-#    page = JSON.parse(this.fullcontent)
-#    whenGotten(page,site)
+  
+  closure = new ContentClosure(ndn, name, interest, (json)->
+#    alert('callback?')
+    page = JSON.parse(json)
+    whenGotten(page,site)
+  )
+  
 
+  ndn.expressInterest(name, closure)
+#  alert("this is a sanity check to see if I've fucked anything up in the last 12 hours")
+#  alert(closure.fullcontent)
 
-
-  closure = new ContentClosure(ndn, name, interest)
-  closure
-
-#  ndn.expressInterest(name, closure)
-  alert("this is a sanity check to see if I've fucked anything up in the last 12 hours")
-  alert(closure.fullcontent)
-
-  page = JSON.parse(closure.fullcontent)
-  whenGotten(page,site)
+#  page = JSON.parse(closure.fullcontent)
+#  whenGotten(page,site)
 
 
 #  $.ajax

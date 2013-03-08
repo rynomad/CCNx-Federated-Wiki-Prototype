@@ -17,14 +17,15 @@
  * The uses ExponentialReExpressClosure in expressInterest to re-express if fetching a segment times out.
  */                                                
 var ContentClosure = function ContentClosure
-      (ndn, name, segmentTemplate, site) {
+      (ndn, name, segmentTemplate, callback) {
     // Inherit from Closure.
     Closure.call(this);
     
     this.ndn = ndn;
     this.name = name;
     this.segmentTemplate = segmentTemplate;
-
+    this.callback = callback
+    
 
 
     this.segmentStore = new SegmentStore();
@@ -35,8 +36,7 @@ var ContentClosure = function ContentClosure
     this.uriEndsWithSegmentNumber = endsWithSegmentNumber(name.to_uri());
     this.done = false;
 
-    this.fullcontent = '';
-    this.site = site
+    this.fullcontent;
 };
 
 ContentClosure.prototype.upcall = function(kind, upcallInfo) {
@@ -165,6 +165,10 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
             this.done = true;
             console.log('kinda hungry');
             console.log(this.fullcontent);
+	    var fc = this.fullcontent;
+	    console.log('$$$$', fc);
+            this.callback(this.fullcontent);
+	    
             return Closure.RESULT_OK;
         }
     }
