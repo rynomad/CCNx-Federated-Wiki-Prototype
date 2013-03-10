@@ -6,104 +6,7 @@
 
 }).call(this);
 
-},{"./lib/wiki.coffee":2,"./lib/legacy.coffee":3}],2:[function(require,module,exports){(function() {
-  var createSynopsis, wiki,
-    __slice = [].slice;
-
-  createSynopsis = require('./synopsis.coffee');
-
-  wiki = {
-    createSynopsis: createSynopsis
-  };
-
-  wiki.log = function() {
-    var things;
-    things = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-    if ((typeof console !== "undefined" && console !== null ? console.log : void 0) != null) {
-      return console.log.apply(console, things);
-    }
-  };
-
-  wiki.asSlug = function(name) {
-    return name.replace(/\s/g, '-').replace(/[^A-Za-z0-9-]/g, '').toLowerCase();
-  };
-
-  wiki.useLocalStorage = function() {
-    return $(".login").length > 0;
-  };
-
-  wiki.resolutionContext = [];
-
-  wiki.resolveFrom = function(addition, callback) {
-    wiki.resolutionContext.push(addition);
-    try {
-      return callback();
-    } finally {
-      wiki.resolutionContext.pop();
-    }
-  };
-
-  wiki.getData = function(vis) {
-    var idx, who;
-    if (vis) {
-      idx = $('.item').index(vis);
-      who = $(".item:lt(" + idx + ")").filter('.chart,.data,.calculator').last();
-      if (who != null) {
-        return who.data('item').data;
-      } else {
-        return {};
-      }
-    } else {
-      who = $('.chart,.data,.calculator').last();
-      if (who != null) {
-        return who.data('item').data;
-      } else {
-        return {};
-      }
-    }
-  };
-
-  wiki.getDataNodes = function(vis) {
-    var idx, who;
-    if (vis) {
-      idx = $('.item').index(vis);
-      who = $(".item:lt(" + idx + ")").filter('.chart,.data,.calculator').toArray().reverse();
-      return $(who);
-    } else {
-      who = $('.chart,.data,.calculator').toArray().reverse();
-      return $(who);
-    }
-  };
-
-  wiki.createPage = function(name, loc) {
-    if (loc && loc !== 'view') {
-      return $("<div/>").attr('id', name).attr('data-site', loc).addClass("page");
-    } else {
-      return $("<div/>").attr('id', name).addClass("page");
-    }
-  };
-
-  wiki.getItem = function(element) {
-    if ($(element).length > 0) {
-      return $(element).data("item") || $(element).data('staticItem');
-    }
-  };
-
-  wiki.resolveLinks = function(string) {
-    var renderInternalLink;
-    renderInternalLink = function(match, name) {
-      var slug;
-      slug = wiki.asSlug(name);
-      return "<a class=\"internal\" href=\"/" + slug + ".html\" data-page-name=\"" + slug + "\" title=\"" + (wiki.resolutionContext.join(' => ')) + "\">" + name + "</a>";
-    };
-    return string.replace(/\[\[([^\]]+)\]\]/gi, renderInternalLink).replace(/\[(http.*?) (.*?)\]/gi, "<a class=\"external\" target=\"_blank\" href=\"$1\" title=\"$1\" rel=\"nofollow\">$2 <img src=\"/images/external-link-ltr-icon.png\"></a>");
-  };
-
-  module.exports = wiki;
-
-}).call(this);
-
-},{"./synopsis.coffee":4}],3:[function(require,module,exports){(function() {
+},{"./lib/wiki.coffee":2,"./lib/legacy.coffee":3}],3:[function(require,module,exports){(function() {
   var active, pageHandler, plugin, refresh, state, util;
 
   util = require('./util.coffee');
@@ -472,7 +375,104 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./active.coffee":9,"./refresh.coffee":10}],5:[function(require,module,exports){(function() {
+},{"./util.coffee":4,"./pageHandler.coffee":5,"./plugin.coffee":6,"./state.coffee":7,"./active.coffee":8,"./refresh.coffee":9}],2:[function(require,module,exports){(function() {
+  var createSynopsis, wiki,
+    __slice = [].slice;
+
+  createSynopsis = require('./synopsis.coffee');
+
+  wiki = {
+    createSynopsis: createSynopsis
+  };
+
+  wiki.log = function() {
+    var things;
+    things = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    if ((typeof console !== "undefined" && console !== null ? console.log : void 0) != null) {
+      return console.log.apply(console, things);
+    }
+  };
+
+  wiki.asSlug = function(name) {
+    return name.replace(/\s/g, '-').replace(/[^A-Za-z0-9-]/g, '').toLowerCase();
+  };
+
+  wiki.useLocalStorage = function() {
+    return $(".login").length > 0;
+  };
+
+  wiki.resolutionContext = [];
+
+  wiki.resolveFrom = function(addition, callback) {
+    wiki.resolutionContext.push(addition);
+    try {
+      return callback();
+    } finally {
+      wiki.resolutionContext.pop();
+    }
+  };
+
+  wiki.getData = function(vis) {
+    var idx, who;
+    if (vis) {
+      idx = $('.item').index(vis);
+      who = $(".item:lt(" + idx + ")").filter('.chart,.data,.calculator').last();
+      if (who != null) {
+        return who.data('item').data;
+      } else {
+        return {};
+      }
+    } else {
+      who = $('.chart,.data,.calculator').last();
+      if (who != null) {
+        return who.data('item').data;
+      } else {
+        return {};
+      }
+    }
+  };
+
+  wiki.getDataNodes = function(vis) {
+    var idx, who;
+    if (vis) {
+      idx = $('.item').index(vis);
+      who = $(".item:lt(" + idx + ")").filter('.chart,.data,.calculator').toArray().reverse();
+      return $(who);
+    } else {
+      who = $('.chart,.data,.calculator').toArray().reverse();
+      return $(who);
+    }
+  };
+
+  wiki.createPage = function(name, loc) {
+    if (loc && loc !== 'view') {
+      return $("<div/>").attr('id', name).attr('data-site', loc).addClass("page");
+    } else {
+      return $("<div/>").attr('id', name).addClass("page");
+    }
+  };
+
+  wiki.getItem = function(element) {
+    if ($(element).length > 0) {
+      return $(element).data("item") || $(element).data('staticItem');
+    }
+  };
+
+  wiki.resolveLinks = function(string) {
+    var renderInternalLink;
+    renderInternalLink = function(match, name) {
+      var slug;
+      slug = wiki.asSlug(name);
+      return "<a class=\"internal\" href=\"/" + slug + ".html\" data-page-name=\"" + slug + "\" title=\"" + (wiki.resolutionContext.join(' => ')) + "\">" + name + "</a>";
+    };
+    return string.replace(/\[\[([^\]]+)\]\]/gi, renderInternalLink).replace(/\[(http.*?) (.*?)\]/gi, "<a class=\"external\" target=\"_blank\" href=\"$1\" title=\"$1\" rel=\"nofollow\">$2 <img src=\"/images/external-link-ltr-icon.png\"></a>");
+  };
+
+  module.exports = wiki;
+
+}).call(this);
+
+},{"./synopsis.coffee":10}],4:[function(require,module,exports){(function() {
   var util;
 
   module.exports = wiki.util = util = {};
@@ -599,36 +599,7 @@
 
 }).call(this);
 
-},{}],4:[function(require,module,exports){(function() {
-
-  module.exports = function(page) {
-    var p1, p2, synopsis;
-    synopsis = page.synopsis;
-    if ((page != null) && (page.story != null)) {
-      p1 = page.story[0];
-      p2 = page.story[1];
-      if (p1 && p1.type === 'paragraph') {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && p2.type === 'paragraph') {
-        synopsis || (synopsis = p2.text);
-      }
-      if (p1 && (p1.text != null)) {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && (p2.text != null)) {
-        synopsis || (synopsis = p2.text);
-      }
-      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
-    } else {
-      synopsis = 'A page with no story.';
-    }
-    return synopsis;
-  };
-
-}).call(this);
-
-},{}],9:[function(require,module,exports){(function() {
+},{}],8:[function(require,module,exports){(function() {
   var active, findScrollContainer, scrollTo;
 
   module.exports = active = {};
@@ -683,7 +654,36 @@
 
 }).call(this);
 
-},{}],6:[function(require,module,exports){(function() {
+},{}],10:[function(require,module,exports){(function() {
+
+  module.exports = function(page) {
+    var p1, p2, synopsis;
+    synopsis = page.synopsis;
+    if ((page != null) && (page.story != null)) {
+      p1 = page.story[0];
+      p2 = page.story[1];
+      if (p1 && p1.type === 'paragraph') {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && p2.type === 'paragraph') {
+        synopsis || (synopsis = p2.text);
+      }
+      if (p1 && (p1.text != null)) {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && (p2.text != null)) {
+        synopsis || (synopsis = p2.text);
+      }
+      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
+    } else {
+      synopsis = 'A page with no story.';
+    }
+    return synopsis;
+  };
+
+}).call(this);
+
+},{}],5:[function(require,module,exports){(function() {
   var addToJournal, pageFromLocalStorage, pageHandler, pushToLocal, pushToServer, recursiveGet, revision, state, util;
 
   util = require('./util.coffee');
@@ -706,7 +706,7 @@
   };
 
   recursiveGet = function(_arg) {
-    var closure, interest, localContext, localPage, name, ndn, pageInformation, rev, site, slug, url, whenGotten, whenNotGotten;
+    var getClosure, interest, localContext, localPage, name, ndn, pageInformation, rev, site, slug, url, whenGotten, whenNotGotten;
     pageInformation = _arg.pageInformation, whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, localContext = _arg.localContext;
     slug = pageInformation.slug, rev = pageInformation.rev, site = pageInformation.site;
     if (site) {
@@ -739,12 +739,13 @@
     });
     name = new Name('/sfw' + url);
     interest = new Interest(name);
-    closure = new ContentClosure(ndn, name, interest, function(json) {
+    getClosure = new ContentClosure(ndn, name, interest, function(json) {
       var page;
       page = JSON.parse(json);
-      return whenGotten(page, site);
+      whenGotten(page, site);
+      return console.log(page.title, page.story[0].id);
     });
-    return ndn.expressInterest(name, closure);
+    return ndn.expressInterest(name, getClosure);
   };
 
   pageHandler.get = function(_arg) {
@@ -799,23 +800,37 @@
   };
 
   pushToServer = function(pageElement, pagePutInfo, action) {
-    return $.ajax({
-      type: 'PUT',
-      url: "/page/" + pagePutInfo.slug + "/action",
-      data: {
-        'action': JSON.stringify(action)
-      },
-      success: function() {
-        addToJournal(pageElement.find('.journal'), action);
-        if (action.type === 'fork') {
-          localStorage.removeItem(pageElement.attr('id'));
-          return state.setUrl;
-        }
-      },
-      error: function(xhr, type, msg) {
-        return wiki.log("pageHandler.put ajax error callback", type, msg);
-      }
+    var interest, name, ndn, putClosure, url;
+    console.log('pageElement:', pageElement);
+    console.log('pagePutInfo:', pagePutInfo);
+    console.log('action:', action.item.id);
+    url = '/sfw/' + pagePutInfo.slug + '.json';
+    ndn = new NDN({
+      host: 'localhost'
     });
+    name = new Name('/sfw/' + pagePutInfo.slug + '.json');
+    interest = new Interest(name);
+    putClosure = new ContentClosure(ndn, name, interest, function(json) {
+      var closure, i, id, objectInResponse, page;
+      page = JSON.parse(json);
+      i = 0;
+      while (i < page.story.length) {
+        objectInResponse = page.story[i];
+        id = objectInResponse.id;
+        if (id === action.item.id) {
+          page.story[i].text = action.item.text;
+          console.log(action.item.text);
+          console.log(page.story[i].text);
+        }
+        i++;
+      }
+      json = JSON.stringify(page);
+      console.log(url);
+      name = new Name(url);
+      closure = new AsyncPutClosure(ndn, json);
+      return ndn.registerPrefix(name, closure);
+    });
+    return ndn.expressInterest(name, putClosure);
   };
 
   pageHandler.put = function(pageElement, action) {
@@ -878,7 +893,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./state.coffee":8,"./revision.coffee":11,"./addToJournal.coffee":12}],7:[function(require,module,exports){(function() {
+},{"./util.coffee":4,"./state.coffee":7,"./revision.coffee":11,"./addToJournal.coffee":12}],6:[function(require,module,exports){(function() {
   var getScript, plugin, scripts, util;
 
   util = require('./util.coffee');
@@ -1017,7 +1032,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5}],8:[function(require,module,exports){(function() {
+},{"./util.coffee":4}],7:[function(require,module,exports){(function() {
   var active, state,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
@@ -1131,7 +1146,7 @@
 
 }).call(this);
 
-},{"./active.coffee":9}],10:[function(require,module,exports){(function() {
+},{"./active.coffee":8}],9:[function(require,module,exports){(function() {
   var addToJournal, buildPageHeader, createFactory, emitHeader, emitTwins, handleDragging, initAddButton, initDragging, neighborhood, pageHandler, plugin, refresh, renderPageIntoPageElement, state, util, wiki,
     __slice = [].slice;
 
@@ -1489,7 +1504,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],11:[function(require,module,exports){(function() {
+},{"./util.coffee":4,"./pageHandler.coffee":5,"./plugin.coffee":6,"./state.coffee":7,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],11:[function(require,module,exports){(function() {
   var create;
 
   create = function(revIndex, data) {
@@ -1556,7 +1571,36 @@
 
 }).call(this);
 
-},{}],13:[function(require,module,exports){(function() {
+},{}],12:[function(require,module,exports){(function() {
+  var util;
+
+  util = require('./util.coffee');
+
+  module.exports = function(journalElement, action) {
+    var actionElement, actionTitle, controls, pageElement, prev;
+    pageElement = journalElement.parents('.page:first');
+    if (action.type === 'edit') {
+      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
+    }
+    actionTitle = action.type;
+    if (action.date != null) {
+      actionTitle += " " + (util.formatElapsedTime(action.date));
+    }
+    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
+    controls = journalElement.children('.control-buttons');
+    if (controls.length > 0) {
+      actionElement.insertBefore(controls);
+    } else {
+      actionElement.appendTo(journalElement);
+    }
+    if (action.type === 'fork' && (action.site != null)) {
+      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
+    }
+  };
+
+}).call(this);
+
+},{"./util.coffee":4}],13:[function(require,module,exports){(function() {
   var active, createSearch, neighborhood, nextAvailableFetch, nextFetchInterval, populateSiteInfoFor, util, _ref,
     __hasProp = {}.hasOwnProperty;
 
@@ -1704,36 +1748,7 @@
 
 }).call(this);
 
-},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],12:[function(require,module,exports){(function() {
-  var util;
-
-  util = require('./util.coffee');
-
-  module.exports = function(journalElement, action) {
-    var actionElement, actionTitle, controls, pageElement, prev;
-    pageElement = journalElement.parents('.page:first');
-    if (action.type === 'edit') {
-      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
-    }
-    actionTitle = action.type;
-    if (action.date != null) {
-      actionTitle += " " + (util.formatElapsedTime(action.date));
-    }
-    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
-    controls = journalElement.children('.control-buttons');
-    if (controls.length > 0) {
-      actionElement.insertBefore(controls);
-    } else {
-      actionElement.appendTo(journalElement);
-    }
-    if (action.type === 'fork' && (action.site != null)) {
-      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5}],14:[function(require,module,exports){(function() {
+},{"./active.coffee":8,"./util.coffee":4,"./search.coffee":14}],14:[function(require,module,exports){(function() {
   var active, createSearch, util;
 
   util = require('./util.coffee');
@@ -1787,4 +1802,4 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./active.coffee":9}]},{},[1]);
+},{"./util.coffee":4,"./active.coffee":8}]},{},[1]);

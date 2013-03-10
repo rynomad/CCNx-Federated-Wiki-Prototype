@@ -40,40 +40,18 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext}) ->
   else
     url = "/#{slug}.json"
 
-
-
-#  closure = new ContentClosure(ndn, name, new Interest(name))
-# ndn.expressInterest(name, closure)
-#  while closure.fullcontent == null
-#    console.log('waiting')
-#    whenGotten(page.site)
-#  
-#
-#  page = closure.fullcontent
-#  console.log(page)
-#  page = JSON.parse(closure.fullcontent)
-#  console.log(page)
-#
-# whenGotten(page,site)
-
   ndn = new NDN({host: 'localhost'})
   name = new Name('/sfw' + url)
   interest = new Interest(name)
   
-  closure = new ContentClosure(ndn, name, interest, (json)->
-#    alert('callback?')
+  getClosure = new ContentClosure(ndn, name, interest, (json)->
     page = JSON.parse(json)
-    whenGotten(page,site)
+    whenGotten(page, site)
+    console.log page.title, page.story[0].id
   )
   
 
-  ndn.expressInterest(name, closure)
-#  alert("this is a sanity check to see if I've fucked anything up in the last 12 hours")
-#  alert(closure.fullcontent)
-
-#  page = JSON.parse(closure.fullcontent)
-#  whenGotten(page,site)
-
+  ndn.expressInterest(name, getClosure)
 
 #  $.ajax
 #    type: 'GET'
@@ -139,18 +117,61 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
   addToJournal pageElement.find('.journal'), action
 
 pushToServer = (pageElement, pagePutInfo, action) ->
-  $.ajax
-    type: 'PUT'
-    url: "/page/#{pagePutInfo.slug}/action"
-    data:
-      'action': JSON.stringify(action)
-    success: () ->
-      addToJournal pageElement.find('.journal'), action
-      if action.type == 'fork' # push
-        localStorage.removeItem pageElement.attr('id')
-        state.setUrl
-    error: (xhr, type, msg) ->
-      wiki.log "pageHandler.put ajax error callback", type, msg
+  console.log('pageElement:',pageElement)
+  console.log('pagePutInfo:', pagePutInfo)
+  console.log('action:', action.item.id)
+
+  url = '/sfw/' + pagePutInfo.slug + '.json'
+
+  ndn = new NDN({host: 'localhost'})
+  name = new Name('/sfw/' + pagePutInfo.slug + '.json')
+  interest = new Interest(name)
+#  alert (interest)
+  putClosure = new ContentClosure(ndn, name, interest, (json)->
+#    alert ('callback?')
+    page = JSON.parse(json)
+
+    i = 0
+    while i < page.story.length
+      objectInResponse = page.story[i] #get current object
+      id = objectInResponse.id #extract the id.
+      if id == action.item.id
+        page.story[i].text = action.item.text
+        console.log action.item.text
+        console.log page.story[i].text
+      i++
+    json = JSON.stringify(page)
+    console.log(url)
+    name = new Name(url)
+    closure = new AsyncPutClosure(ndn, json)
+    ndn.registerPrefix(name, closure)
+  )
+
+  ndn.expressInterest(name, putClosure)
+
+
+#    result = {} #declare a new object.
+#    i = 0
+#    while i < page.story.length
+#      objectInResponse = page.story[i] #get current object
+#      type = objectInResponse.type
+#      id = objectInResponse.id #extract the id.
+#      text = objectInResponse.text
+#      result[id] = quantity
+#      i++
+
+#  $.ajax
+#    type: 'PUT'
+#    url: "/page/#{pagePutInfo.slug}/action"
+#    data:
+#      'action': JSON.stringify(action)
+#    success: () ->
+#      addToJournal pageElement.find('.journal'), action
+#      if action.type == 'fork' # push
+#        localStorage.removeItem pageElement.attr('id')
+#        state.setUrl
+#    error: (xhr, type, msg) ->
+#      wiki.log "pageHandler.put ajax error callback", type, msg3
 
 pageHandler.put = (pageElement, action) ->
 

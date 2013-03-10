@@ -40,6 +40,10 @@ var ContentClosure = function ContentClosure
 };
 
 ContentClosure.prototype.upcall = function(kind, upcallInfo) {
+  console.log('starting upcall');
+  console.log('this.ndn', this.ndn);
+  console.log('name',this.name);
+  console.log('segmentTemplate',this.segmentTemplate);
   try {
 
       
@@ -117,7 +121,8 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
     if (segmentNumber == null) {
         // We are not doing segments, so just finish.
         console.log('no segments');
-        
+        this.fullcontent = DataUtils.toString(contentObject.content);
+        this.callback(this.fullcontent);
         this.contentListener.onReceivedContent(DataUtils.toString(contentObject.content));
         this.contentSha256.update(contentObject.content);
         this.contentListener.onStop();
@@ -163,10 +168,8 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
                 // TODO: How to show the user an error for invalid digest?
                 dump("Content does not match digest in name " + contentObject.name.to_uri());
             this.done = true;
-            console.log('kinda hungry');
-            console.log(this.fullcontent);
-	    var fc = this.fullcontent;
-	    console.log('$$$$', fc);
+            // console.log('kinda hungry');
+            // console.log(this.fullcontent);
             this.callback(this.fullcontent);
 	    
             return Closure.RESULT_OK;
@@ -212,6 +215,42 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
         return Closure.RESULT_ERR;
   }
 
+};
+
+
+
+
+
+/**
+ * Publish closures
+ */
+
+var AsyncPutClosure = function AsyncPutClosure(ndn, content) {
+     	// Inherit from Closure.
+	Closure.call(this);
+	this.content = content;
+        this.ndn = ndn;
+	};
+	
+AsyncPutClosure.prototype.upcall = function(kind, upcallInfo) {
+	console.log('started publish upcall');
+	if (kind == Closure.UPCALL_FINAL) {
+		console.log('is this where things are stopping?');
+	} else if (kind == Closure.UPCALL_INTEREST) {
+		console.log('AsyncPutClosure.upcall() called.');
+                console.log("Host: " + this.ndn.host + ":" + this.ndn.port);
+			var interest = upcallInfo.interest;
+			var nameStr = interest.name.getName();
+			
+			var si = new SignedInfo();
+			
+			var co = new ContentObject(new Name(nameStr), si, this.content, new Signature());
+			co.sign();
+			
+			upcallInfo.contentObject = co;
+			return Closure.RESULT_INTEREST_CONSUMED;
+		}
+		return Closure.RESULT_OK;
 };
 
 /*
