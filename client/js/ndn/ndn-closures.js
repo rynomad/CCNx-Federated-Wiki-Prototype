@@ -1,3 +1,4 @@
+
 /*
  * @author: Jeff Thompson
  * See COPYING for copyright and distribution information.
@@ -40,13 +41,13 @@ var ContentClosure = function ContentClosure
 };
 
 ContentClosure.prototype.upcall = function(kind, upcallInfo) {
-  console.log('starting upcall');
-  console.log('this.ndn', this.ndn);
-  console.log('name',this.name);
-  console.log('segmentTemplate',this.segmentTemplate);
+//  console.log('starting upcall');
+//  console.log('this.ndn', this.ndn);
+//  console.log('name',this.name);
+//  console.log('segmentTemplate',this.segmentTemplate);
+
   try {
 
-      
     if (!(kind == Closure.UPCALL_CONTENT ||
           kind == Closure.UPCALL_CONTENT_UNVERIFIED))
         // The upcall is not for us.
@@ -89,7 +90,7 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
         */
         
 
-        console.log('segmentNumber: ', segmentNumber);
+        //console.log('segmentNumber: ', segmentNumber);
 
 
         this.didOnStart = true;
@@ -100,32 +101,34 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
             var nameWithoutSegmentNumber = new Name
                 (contentObject.name.components.slice(0, contentObject.name.components.length - 1));
             contentUriSpec = nameWithoutSegmentNumber.to_uri();
-            console.log(contentUriSpec + ' 1');
+            //console.log(contentUriSpec + ' 1');
         }
         else
             contentUriSpec = contentObject.name.to_uri();
     
-        
-        console.log('contentUriSpec', contentUriSpec);
+        //console.log(contentObject);
+        //console.log('contentUriSpec', contentUriSpec);
 
 
         var contentTypeEtc = getNameContentTypeAndCharset(contentObject.name);
         
         this.contentTypeEtc = contentTypeEtc
 
-        console.log('contentTypeEtc', contentTypeEtc);
+        //console.log('contentTypeEtc', contentTypeEtc);
 
 
     }
 
     if (segmentNumber == null) {
         // We are not doing segments, so just finish.
-        console.log('no segments');
+        //console.log(contentObject);
         this.fullcontent = DataUtils.toString(contentObject.content);
-        this.callback(this.fullcontent);
-        this.contentListener.onReceivedContent(DataUtils.toString(contentObject.content));
+        var components = contentObject.name.components.slice
+            (0, contentObject.name.components.length );
+        var version = DataUtils.toString(components[2])
+        this.callback(this.fullcontent,version);
         this.contentSha256.update(contentObject.content);
-        this.contentListener.onStop();
+
 
 
         if (!this.uriEndsWithSegmentNumber) {
@@ -133,50 +136,54 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
             if (nameContentDigest != null &&
                 !DataUtils.arraysEqual(nameContentDigest, this.contentSha256.finalize()))
                 // TODO: How to show the user an error for invalid digest?
-                dump("Content does not match digest in name " + contentObject.name.to_uri());
+                console.log("Content does not match digest in name " + contentObject.name.to_uri());
         }
         return Closure.RESULT_OK;
     }
     
     if (contentObject.signedInfo != null && contentObject.signedInfo.finalBlockID != null) {
-        console.log('final segment number: ' + contentObject.signedInfo.finalBlockID);
+        //console.log('final segment number: ' + contentObject.signedInfo.finalBlockID);
         this.finalSegmentNumber = DataUtils.bigEndianToUnsignedInt(contentObject.signedInfo.finalBlockID);
     }
     // The content was already put in the store.  Retrieve as much as possible.
     var entry;
-    console.log('entry defined');
+    //console.log('entry defined');
     while ((entry = this.segmentStore.maybeRetrieveNextEntry()) != null) {
         segmentNumber = entry.key;
         contentObject = entry.value;
 
         this.fullcontent += DataUtils.toString(contentObject.content);
 
-        console.log('retrieving segmentNumber ', segmentNumber);
+        //console.log('retrieving segmentNumber ', segmentNumber);
 
 
         this.contentSha256.update(contentObject.content);
 
-        console.log(this.finalSegmentNumber);
+        //console.log(this.finalSegmentNumber);
         
         if (this.finalSegmentNumber != null && segmentNumber == this.finalSegmentNumber) {
             // Finished.
             console.log('finished');
-            console.log('segmentNumber === this.finalSegmentNumber:', segmentNumber === this.finalSegmentNumber);
+            //console.log('segmentNumber === this.finalSegmentNumber:', segmentNumber === this.finalSegmentNumber);
             var nameContentDigest = contentObject.name.getContentDigestValue();
             if (nameContentDigest != null &&
                 !DataUtils.arraysEqual(nameContentDigest, this.contentSha256.finalize()))
                 // TODO: How to show the user an error for invalid digest?
-                dump("Content does not match digest in name " + contentObject.name.to_uri());
+                console.log("Content does not match digest in name " + contentObject.name.to_uri());
             this.done = true;
             // console.log('kinda hungry');
             // console.log(this.fullcontent);
-            this.callback(this.fullcontent);
+            var components = contentObject.name.components.slice
+                (0, contentObject.name.components.length );
+            //console.log(components);
+            var version = DataUtils.toString(components[2])
+            this.callback(this.fullcontent,version);
 	    
             return Closure.RESULT_OK;
         }
     }
 
-    console.log('not finished yet');
+    //console.log('not finished yet');
 
     if (this.finalSegmentNumber == null && !this.didRequestFinalSegment) {
         this.didRequestFinalSegment = true;
@@ -184,15 +191,15 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
         // Try to determine the final segment now.
         var components = contentObject.name.components.slice
             (0, contentObject.name.components.length );
-        console.log('components = ' + DataUtils.toString(components[3]));
+        //console.log('components = ' + DataUtils.toString(components[3]));
 
         // Clone the template to set the childSelector.
         var childSelectorTemplate = this.segmentTemplate.clone();
         childSelectorTemplate.childSelector = 1;
-        console.log('set childselector');
+        //console.log('set childselector');
         this.ndn.expressInterest
             (new Name(components), new ExponentialReExpressClosure(this), childSelectorTemplate);
-        console.log('requested final segment');
+        //console.log('requested final segment');
     }
 
     // Request new segments.
@@ -205,13 +212,13 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
             (new Name(contentObject.name.components.slice
                       (0, contentObject.name.components.length - 1)).addSegment(toRequest[i]), 
              new ExponentialReExpressClosure(this), this.segmentTemplate);
-        console.log('requesting new segment')
+        //console.log('requesting new segment');
     }
-    console.log('closure worked!');
+    //console.log('closure worked!');
     
     return Closure.RESULT_OK;
   } catch (ex) {
-        dump("ContentClosure.upcall exception: " + ex + "\n" + ex.stack);
+        console.log("ContentClosure.upcall exception: " + ex + ":" + ex.stack);
         return Closure.RESULT_ERR;
   }
 
@@ -225,11 +232,13 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
  * Publish closures
  */
 
-var AsyncPutClosure = function AsyncPutClosure(ndn, content) {
+var AsyncPutClosure = function AsyncPutClosure(ndn, name, content, signed) {
      	// Inherit from Closure.
 	Closure.call(this);
 	this.content = content;
         this.ndn = ndn;
+        this.name = name;
+        this.signed = signed;
 	};
 	
 AsyncPutClosure.prototype.upcall = function(kind, upcallInfo) {
@@ -239,14 +248,14 @@ AsyncPutClosure.prototype.upcall = function(kind, upcallInfo) {
 	} else if (kind == Closure.UPCALL_INTEREST) {
 		console.log('AsyncPutClosure.upcall() called.');
                 console.log("Host: " + this.ndn.host + ":" + this.ndn.port);
+                console.log('truename'+this.name);
 			var interest = upcallInfo.interest;
-			var nameStr = interest.name.getName();
-			
-			var si = new SignedInfo();
-			
-			var co = new ContentObject(new Name(nameStr), si, this.content, new Signature());
+	        console.log('upcallInfo.interest',upcallInfo.interest);
+			var si = this.signed;
+			console.log('si',si);
+			var co = new ContentObject(this.name, si, this.content, new Signature());
 			co.sign();
-			
+			console.log('co',co);
 			upcallInfo.contentObject = co;
 			return Closure.RESULT_INTEREST_CONSUMED;
 		}

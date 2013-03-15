@@ -3,10 +3,7 @@ state = require('./state.coffee')
 revision = require('./revision.coffee')
 addToJournal = require('./addToJournal.coffee')
 
-
-
 module.exports = pageHandler = {}
-
 
 pageFromLocalStorage = (slug)->
   if json = localStorage[slug]
@@ -14,78 +11,27 @@ pageFromLocalStorage = (slug)->
   else
     undefined
 
-recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext}) ->
+recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn}) ->
   {slug,rev,site} = pageInformation
-
-
-
-  if site
-    localContext = []
-  else
-    site = localContext.shift()
-
-  site = null if site=='view'
-
-  if site?
-    if site == 'local'
-      if localPage = pageFromLocalStorage(pageInformation.slug)
-        return whenGotten( localPage, 'local' )
-      else
-        return whenNotGotten()
-    else
-      if site == 'origin'
-        url = "/#{slug}.json"
-      else
-        url = "#{site}/#{slug}.json"
-  else
-    url = "/#{slug}.json"
-
-  ndn = new NDN({host: 'localhost'})
-  name = new Name('/sfw' + url)
+  name = new Name("/sfw/#{slug}")
   interest = new Interest(name)
+  template = {}
+  console.log(ndn)
+  getCallback = (json, version) ->
+    if json != undefined
+      console.log(json)
+      page = JSON.parse(json)
+      page.version = version
+      whenGotten(page, site) 
+    else
+      console.log ('json == null')
+      whenNotGotten()
   
-  getClosure = new ContentClosure(ndn, name, interest, (json)->
-    page = JSON.parse(json)
-    whenGotten(page, site)
-    console.log page.title, page.story[0].id
-  )
-  
+  getClosure = new ContentClosure(ndn, name, interest, getCallback)
 
-  ndn.expressInterest(name, getClosure)
+  ndn.expressInterest(name, getClosure, template)
 
-#  $.ajax
-#    type: 'GET'
-#    dataType: 'json'
-#    url: url + "?random=#{util.randomBytes(4)}"
-#    success: (page) ->
-#      page = revision.create rev, page if rev
-#      return whenGotten(page,site)
-#    error: (xhr, type, msg) ->
-#      if (xhr.status != 404) and (xhr.status != 0)
-#        wiki.log 'pageHandler.get error', xhr, xhr.status, type, msg
-#        report =
-#          'title': "#{xhr.status} #{msg}"
-#          'story': [
-#            'type': 'paragraph'
-#            'id': '928739187243'
-#            'text': "<pre>#{xhr.responseText}"
-#          ]
-#        return whenGotten report, 'local'
-#      if localContext.length > 0
-#        recursiveGet( {pageInformation, whenGotten, whenNotGotten, localContext} )
-#      else
-#        whenNotGotten()
-
-# NeighborNet BEGIN 
-
-
-
-
-
-# NeighborNet END  
-
-
-pageHandler.get = ({whenGotten,whenNotGotten,pageInformation}) ->
+pageHandler.get = ({whenGotten,whenNotGotten,pageInformation,ndn}) ->
 
   unless pageInformation.site
     if localPage = pageFromLocalStorage(pageInformation.slug)
@@ -93,12 +39,13 @@ pageHandler.get = ({whenGotten,whenNotGotten,pageInformation}) ->
       return whenGotten( localPage, 'local' )
 
   pageHandler.context = ['view'] unless pageHandler.context.length
-
+  console.log(ndn)
   recursiveGet
     pageInformation: pageInformation
     whenGotten: whenGotten
     whenNotGotten: whenNotGotten
     localContext: _.clone(pageHandler.context)
+    ndn: ndn
 
 
 pageHandler.context = []
@@ -115,63 +62,74 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
   page.story = $(pageElement).find(".item").map(-> $(@).data("item")).get()
   localStorage[pagePutInfo.slug] = JSON.stringify(page)
   addToJournal pageElement.find('.journal'), action
-
 pushToServer = (pageElement, pagePutInfo, action) ->
-  console.log('pageElement:',pageElement)
+  console.log('pageElement:',pageElement.attr('id'))
   console.log('pagePutInfo:', pagePutInfo)
-  console.log('action:', action.item.id)
+  console.log('action:', action)
 
-  url = '/sfw/' + pagePutInfo.slug + '.json'
+  server = location.host.split(':')
+  server = server[0]
+  ndn = new NDN({host: server})
 
-  ndn = new NDN({host: 'localhost'})
-  name = new Name('/sfw/' + pagePutInfo.slug + '.json')
-  interest = new Interest(name)
-#  alert (interest)
-  putClosure = new ContentClosure(ndn, name, interest, (json)->
-#    alert ('callback?')
-    page = JSON.parse(json)
+  signedInfo = new SignedInfo()
+  signedInfo.freshnessSeconds = 5
+  timestamp = signedInfo.timestamp.msec
+  console.log(signedInfo.timestamp.msec)
 
-    i = 0
-    while i < page.story.length
-      objectInResponse = page.story[i] #get current object
-      id = objectInResponse.id #extract the id.
-      if id == action.item.id
-        page.story[i].text = action.item.text
-        console.log action.item.text
-        console.log page.story[i].text
+  name = new Name('/sfw/' + pagePutInfo.slug + '/' + timestamp)
+  console.log('name: ', name)
+
+  prefix = new Name('/sfw/' + pagePutInfo.slug)
+  console.log(prefix)
+  page = pageElement.data('data')
+
+  page.story = switch action.type
+    when 'move'
+      action.order.map (id) ->
+        page.story.filter((para) ->
+          id == para.id
+        )[0] or throw('Ignoring move. Try reload.')
+
+    when 'add'
+      idx = page.story.map((para) -> para.id).indexOf(action.after) + 1
+      page.story.splice(idx, 0, action.item)
+      page.story
+
+    when 'remove'
+      page.story.filter (para) ->
+        para?.id != action.id
+
+    when 'edit'
+      page.story.map (para) ->
+        if para.id is action.id
+          action.item
+        else
+          para
+
+    when 'create', 'fork'
+      page.story or []
+
+    else
+      log "Unfamiliar action:", action
+      page.story
+
+  json = JSON.stringify(page)
+  putClosure = new AsyncPutClosure(ndn, name, json, signedInfo)
+  i = 0
+
+  if NDN.CSTable[0] == undefined
+    console.log ('REGING')
+    ndn.registerPrefix(prefix, putClosure)
+  else
+    while i < NDN.CSTable.length
+      console.log NDN.CSTable[i]
+      if page.title == JSON.parse(NDN.CSTable[i].closure.content).title
+        NDN.CSTable[i].closure.content = json
+      else
+        console.log ('REGIN PREFIX')
+        ndn.registerPrefix(prefix, putClosure)
       i++
-    json = JSON.stringify(page)
-    console.log(url)
-    name = new Name(url)
-    closure = new AsyncPutClosure(ndn, json)
-    ndn.registerPrefix(name, closure)
-  )
 
-  ndn.expressInterest(name, putClosure)
-
-
-#    result = {} #declare a new object.
-#    i = 0
-#    while i < page.story.length
-#      objectInResponse = page.story[i] #get current object
-#      type = objectInResponse.type
-#      id = objectInResponse.id #extract the id.
-#      text = objectInResponse.text
-#      result[id] = quantity
-#      i++
-
-#  $.ajax
-#    type: 'PUT'
-#    url: "/page/#{pagePutInfo.slug}/action"
-#    data:
-#      'action': JSON.stringify(action)
-#    success: () ->
-#      addToJournal pageElement.find('.journal'), action
-#      if action.type == 'fork' # push
-#        localStorage.removeItem pageElement.attr('id')
-#        state.setUrl
-#    error: (xhr, type, msg) ->
-#      wiki.log "pageHandler.put ajax error callback", type, msg3
 
 pageHandler.put = (pageElement, action) ->
 

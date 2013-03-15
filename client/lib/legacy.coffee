@@ -182,6 +182,7 @@ $ ->
   getTemplate = (slug, done) ->
     return done(null) unless slug
     wiki.log 'getTemplate', slug
+    console.log('pagestart1')
     pageHandler.get
       whenGotten: (data,siteFound) -> done(data.story)
       whenNotGotten: -> done(null)
@@ -225,6 +226,7 @@ $ ->
     .delegate '.action', 'click', (e) ->
       e.preventDefault()
       $action = $(e.target)
+      console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACTION',$action)
       if $action.is('.fork') and (name = $action.data('slug'))?
         pageHandler.context = [$action.data('site')]
         finishClick e, (name.split '_')[0]
@@ -296,5 +298,5 @@ $ ->
 
   $('body').on 'new-neighbor-done', (e, neighbor) ->
     $('.page').each (index, element) ->
-      wiki.emitTwins $(element)
+#      wiki.emitTwins $(element)
 
