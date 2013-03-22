@@ -62,6 +62,7 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
   page.story = $(pageElement).find(".item").map(-> $(@).data("item")).get()
   localStorage[pagePutInfo.slug] = JSON.stringify(page)
   addToJournal pageElement.find('.journal'), action
+
 pushToServer = (pageElement, pagePutInfo, action) ->
   console.log('pageElement:',pageElement.attr('id'))
   console.log('pagePutInfo:', pagePutInfo)
@@ -125,10 +126,17 @@ pushToServer = (pageElement, pagePutInfo, action) ->
       console.log NDN.CSTable[i]
       if page.title == JSON.parse(NDN.CSTable[i].closure.content).title
         NDN.CSTable[i].closure.content = json
-      else
+        ping = "pinged"
+      else 
         console.log ('REGIN PREFIX')
         ndn.registerPrefix(prefix, putClosure)
       i++
+      
+      
+  ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB
+  
+  co = new ContentObject(name, signedInfo, page, new Signature())
+  ###
 
 
 pageHandler.put = (pageElement, action) ->

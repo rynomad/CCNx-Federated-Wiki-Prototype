@@ -47,6 +47,16 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
 //  console.log('segmentTemplate',this.segmentTemplate);
 
   try {
+    if (kind == Closure.UPCALL_INTEREST_TIMED_OUT) {
+        if (!this.didOnStart) {
+            // We have not received a segments to start the content yet, so assume the URI can't be fetched.
+            this.callback();
+            return Closure.RESULT_OK;
+        }
+        else
+            // ExponentialReExpressClosure already tried to re-express, so quit.
+            return Closure.RESULT_ERR;
+    }  
 
     if (!(kind == Closure.UPCALL_CONTENT ||
           kind == Closure.UPCALL_CONTENT_UNVERIFIED))
@@ -121,7 +131,7 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
 
     if (segmentNumber == null) {
         // We are not doing segments, so just finish.
-        //console.log(contentObject);
+        console.log('contentObject : ',contentObject);
         this.fullcontent = DataUtils.toString(contentObject.content);
         var components = contentObject.name.components.slice
             (0, contentObject.name.components.length );
@@ -250,12 +260,39 @@ AsyncPutClosure.prototype.upcall = function(kind, upcallInfo) {
                 console.log("Host: " + this.ndn.host + ":" + this.ndn.port);
                 console.log('truename'+this.name);
 			var interest = upcallInfo.interest;
-	        console.log('upcallInfo.interest',upcallInfo.interest);
+	        console.log('upcallInfo.interest',DataUtils.toString(upcallInfo.interest.name.components[0]));
 			var si = this.signed;
 			console.log('si',si);
 			var co = new ContentObject(this.name, si, this.content, new Signature());
 			co.sign();
 			console.log('co',co);
+			upcallInfo.contentObject = co;
+			return Closure.RESULT_INTEREST_CONSUMED;
+		}
+		return Closure.RESULT_OK;
+};
+
+
+var PublishClosure = function PublishClosure(database) {
+     	// Inherit from Closure.
+	Closure.call(this);
+	this.database = database;
+	};
+	
+PublishClosure.prototype.upcall = function(kind, upcallInfo) {
+	console.log('started publish upcall');
+	if (kind == Closure.UPCALL_FINAL) {
+		console.log('is this where things are stopping?');
+	} else if (kind == Closure.UPCALL_INTEREST) {
+		console.log('AsyncPutClosure.upcall() called.');
+                console.log("Host: " + this.ndn.host + ":" + this.ndn.port);
+		var interest = upcallInfo.interest;
+	        console.log('upcallInfo.interest',upcallInfo.interest);
+			console.log('si',si);
+			var co = new ContentObject(this.name, si, this.content, new Signature());
+			co.sign();
+			console.log('co',co);
+
 			upcallInfo.contentObject = co;
 			return Closure.RESULT_INTEREST_CONSUMED;
 		}

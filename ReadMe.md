@@ -1,7 +1,7 @@
 Content Centric Wiki Goals
 ==========================
 
-Content Centric Wiki is a port of Ward Cunninghams Smallest Federated Wiki, modified to federate via Content Centric Networking via NDN-js. The concept has proven to be workable, though it will be some time before it is useable. This is the first of many projects envisioned to run over Nei.ghbor.Net, a cooperatively administered, globaly scaled, locally-focused CCN network.
+Content Centric Wiki is a port of Ward Cunninghams Smallest Federated Wiki, modified to federate via Content Centric Networking via NDN-js. The concept has proven to be workable, though it will be some time before it is useable. This is the first of many projects envisioned to run over Nei.ghbor.Net, a cooperatively administered, globaly scaled, locally-focused CCN network...
 
 We imagine two components:
 

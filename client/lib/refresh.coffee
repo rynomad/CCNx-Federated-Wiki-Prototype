@@ -242,9 +242,26 @@ wiki.buildPage = (data,siteFound,$page) ->
 
 module.exports = refresh = wiki.refresh = ->
   server = location.host.split(':')[0]
-  ndn = new NDN({host: server})
+  getndn = new NDN({host: server})
+  pubndn = new NDN({host: server})
   console.log(ndn)
   $page = $(this)
+  
+  ### Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests
+  
+  INITIALIZE IndexedDB's for pages and content items, pageDB and contentDB
+  
+  pagePrefix = new Name ('/NeighborNet/pages/')
+  contentPrefix = new Name('/NeighborNet/content/')
+  pageClosure = new PublishClosure(pageDB)
+  contentClosure = new PublishClosure(contentDB)
+  
+  pubndn.RegisterPrefix(pagePrefix, pageClosure)
+  pubndn.RegisterPrefix(contentPrefix, contentClosure)
+  
+  ###
+  
+  
 
   [slug, rev] = $page.attr('id').split('_rev')
   pageInformation = {
@@ -299,10 +316,9 @@ module.exports = refresh = wiki.refresh = ->
   whenGotten = (data,siteFound) ->
     wiki.buildPage( data, siteFound, $page )
     registerNeighbors( data, siteFound )
-  console.log('pagestart')
 
   pageHandler.get
     whenGotten: whenGotten
     whenNotGotten: createGhostPage
     pageInformation: pageInformation
-    ndn: ndn
+    ndn: getndn
