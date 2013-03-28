@@ -244,22 +244,14 @@ module.exports = refresh = wiki.refresh = ->
   server = location.host.split(':')[0]
   getndn = new NDN({host: server})
   pubndn = new NDN({host: server})
-  console.log(ndn)
   $page = $(this)
   
-  ### Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests
+  ### Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests 
+  pagePrefix = new Name ('/sfw/')
+  pageClosure = new PublishClosure()
   
-  INITIALIZE IndexedDB's for pages and content items, pageDB and contentDB
-  
-  pagePrefix = new Name ('/NeighborNet/pages/')
-  contentPrefix = new Name('/NeighborNet/content/')
-  pageClosure = new PublishClosure(pageDB)
-  contentClosure = new PublishClosure(contentDB)
-  
-  pubndn.RegisterPrefix(pagePrefix, pageClosure)
-  pubndn.RegisterPrefix(contentPrefix, contentClosure)
-  
-  ###
+  pubndn.registerPrefix(pagePrefix, pageClosure)
+  ### 
   
   
 

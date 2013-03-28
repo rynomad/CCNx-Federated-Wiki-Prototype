@@ -9,49 +9,53 @@ window.sdb = (window.sdb || (function(){
 	function SDB(schema, successCallback){
 		this.req, this.db, this.transaction;
 		
-		this.req = indexedDB.open(schema.db, schema.v);
+		this.req = indexedDB.open((schema.db || schema), (schema.v || !''));  // takes schema or DBnameString
 		this.req.onsuccess = function(e){
 			this.db = e.target.result;
 			successCallback(this.db);
 		};
-		
+	
 		this.req.onerror = function(e){
 			console.log("IndexedDB error: " + e.target.errorCode);
 		};
-		
-		this.req.onupgradeneeded = function(e){
-			var stores = schema.upgrade.stores, objectStore;
-			for(var store in stores){
-				objectStore = e.currentTarget.result.createObjectStore(
-					stores[store].name, stores[store].opts
-				);
-				createIndices(stores[store].indices);
-				
-				// TEST objectStore given that name and email are part of the schema.
-				/*
-				var peopleData = [
-					{name: 'John Dow', email: 'john@company.com'},
-					{name: 'Don Dow', email: 'don@company.com'},
-					{name: 'versions', email: 'unique@email.com', versions: [
-							{versionName: 'myVersionName1', pubKey: 'myPubKey1'},
-							{versionName: 'myVersionName2', pubKey: 'myPubKey2'},
-							{versionName: 'myVersionName3', pubKey: 'myPubKey3'}
-						]
-					}
-				];
-				for(i in peopleData){objectStore.add(peopleData[i]);} //END TEST
-				*/
-				
-			}
 			
-			function createIndices(inds){
-				for(var ind in inds){
-					objectStore.createIndex(
-						inds[ind].index, inds[ind].index, inds[ind].opts
+		if(schema.constructor === Object){  // CLEAN THIS UP! - ITS REPEATATIVE!!!
+			
+			this.req.onupgradeneeded = function(e){
+				var stores = schema.upgrade.stores, objectStore;
+				for(var store in stores){
+					objectStore = e.currentTarget.result.createObjectStore(
+						stores[store].name, stores[store].opts
 					);
+					createIndices(stores[store].indices);
+				
+					// TEST objectStore given that name and email are part of the schema.
+					/*
+					var peopleData = [
+						{name: 'John Dow', email: 'john@company.com'},
+						{name: 'Don Dow', email: 'don@company.com'},
+						{name: 'versions', email: 'unique@email.com', versions: [
+								{versionName: 'myVersionName1', pubKey: 'myPubKey1'},
+								{versionName: 'myVersionName2', pubKey: 'myPubKey2'},
+								{versionName: 'myVersionName3', pubKey: 'myPubKey3'}
+							]
+						}
+					];
+					for(i in peopleData){objectStore.add(peopleData[i]);} //END TEST
+					*/
+				
 				}
+			
+				function createIndices(inds){
+					for(var ind in inds){
+						objectStore.createIndex(
+							inds[ind].index, inds[ind].index, inds[ind].opts
+						);
+					}
+				};
 			};
-		};
+		
+		}
 		
 		/**
 		 * @return this[methodName] to api with alias
@@ -73,77 +77,22 @@ window.sdb = (window.sdb || (function(){
 	};
 	
 	SDB.prototype = (function(){
+		
 		var transaction, objectStore;
+		
 		function createTransaction(db, store, transactionType){
-			console.log('hit trans', db, store, IDBTransaction[transactionType]);
-			transaction = db.transaction(store, IDBTransaction[transactionType]);
-			console.log('transaction', transaction);
+			transaction = db.transaction(store, transactionType);
 			return this;
 		};
 		
-		function objectStore(store){
-			
-			/*
-			(transaction) && ((function(){
-				(
-					(transaction.constructor === String)
-					&&
-					(objectStore = transaction.objectStore(store))
-				)
-				||
-				(
-					(transaction.constructor === Array)
-					&&
-					((function(){
-						objectStore = [];
-						for(var i in transaction){
-							objectStore[i] = transaction[i].objectStore(store)
-						}
-					})())
-				);
-			})());
-			*/
-			
+		function getObjectStore(store){
 			(transaction) && (objectStore = transaction.objectStore(store));
 			return this;
 		};
 		
-		function ADD(obj){
-			console.log('hit ADD function, obj', (obj && obj) || 'NO obj');
-			obj && objectStore.add(obj);
-			return this;
-		};
-		
-		function PUT(obj, callback){
+		function ADD(obj, callback){
 			
-			/*
-			var item, req;
-			if(objectStore.constructor === String){
-				req = ((obj && objectStore.put(obj))
-					.onsuccess = function(e){
-						item = e.target.result;
-						callback && callback(item);
-						return req;
-					}).onerror = function(e){
-						console.log('PUT ERROR!', e);
-						return req;
-					};
-			}else if(objectStore.constructor === Array){
-				for(var i in objectStore){
-					req = ((obj && objectStore[i].put(obj))
-						.onsuccess = function(e){
-							item = e.target.result;
-							callback && callback(item);
-							return req;
-						}).onerror = function(e){
-							console.log('PUT ERROR!', e);
-							return req;
-						};
-				}
-			}
-			*/
-			
-			var item, req = ((obj && objectStore.put(obj))
+			var item, req = ((obj && objectStore.add(obj))
 				.onsuccess = function(e){
 					item = e.target.result;
 					callback && callback(item);
@@ -152,14 +101,34 @@ window.sdb = (window.sdb || (function(){
 					console.log('PUT ERROR!', e);
 					return req;
 				};
+			
+			return this;
+		};
+		
+		function PUT(obj, callback){
+			
+			var item, req;
+			req = ( (obj) && objectStore.put(obj) );
+			req.onsuccess = function(e){
+				console.log('PUT.onsuccess', e);
+				item = e.target.result;
+				callback && callback(item);
+				return req;
+			};
+			req.onerror = function(e){
+				console.log('PUT ERROR!', e);
+				return req;
+			};
 			return this;
 		};
 		
 		function GET(keyPath, callback){
+			
 			var item, req = ((keyPath && objectStore.get(keyPath))
 				.onsuccess = function(e){
-					item = e.target.result;
+					item = e.target.source;
 					callback && callback(item);
+					console.log('this',item,req);
 					return req;
 				}).onerror = function(e){
 					console.log('GET ERROR!', e);
@@ -179,9 +148,9 @@ window.sdb = (window.sdb || (function(){
 			req.onsuccess = function(e){
 				cursor = e.target.result;
 				(cursor) && ((function(){
+				        console.log('thatcursor')
 					items.push(cursor.value);
-					callback(cursor.value);
-					cursor.continue();
+					callback(cursor);
 				})());
 			};
 			return this;
@@ -209,6 +178,8 @@ window.sdb = (window.sdb || (function(){
 					var result = e.target.result;
 					callback(result);
 				};
+				
+				console.log('this',this);
 				return this;
 			};
 			
@@ -217,7 +188,7 @@ window.sdb = (window.sdb || (function(){
 				req.onsuccess = function(e){
 					cursor = e.target.result;
 					(cursor) && ((function(){
-						items.push(cursor.value);
+						items.push('thiscursor');
 						callback(cursor.value);
 						cursor.continue();
 					})());
@@ -255,7 +226,7 @@ window.sdb = (window.sdb || (function(){
 		 */
 		return {
 			trans: createTransaction,
-			store: objectStore,
+			store: getObjectStore,
 			add: ADD,
 			put: PUT,
 			del: DELETE,
@@ -276,42 +247,34 @@ window.sdb = (window.sdb || (function(){
 	
 }()));
 
-var PeopleDBschema = {
-	db: 'PeopleDB',
+var NeighborNetDBschema = {
+	db: 'NeighborNetDB',
 	v: 1,
 	upgrade: {
 		stores: [
 			{
-				name: 'humans',
+				name: 'pageContentObjects',
 				opts: {keyPath: 'id', autoIncrement: true},
 				indices: [
 					{index: 'name', opts: {unique: false}},
-					{index: 'email', opts: {unique: true}}
+					{index: 'fullName', opts: {unique: true}}
 				]
 			},
 			{
-				name: 'aliens',
+				name: 'LocalID',
 				opts: {keyPath: 'id', autoIncrement: true},
 				indices: [
 					{index: 'name', opts: {unique: false}},
 					{index: 'email', opts: {unique: true}}
 				]
-			}/*,
-			{  // add for version 2 (take out stores from v1)
-				name: 'animals',
-				opts: {keyPath: 'id', autoIncrement: true},
-				indices: [
-					{index: 'animalName', opts: {unique: false}},
-					{index: 'animalEmail', opts: {unique: true}}
-				]
-			}*/
+			}
 		]
 	} 
 };
 
-var idb = sdb, PeopleDB = idb.req(PeopleDBschema, function(db){
+/** var idb = sdb, PeopleDB = idb.req(PeopleDBschema, function(db){
 
-	/**/
+	
 	console.log('success!', db, '\n\n');
 	PeopleDB
 		.tr(db, ['humans'], 'READ_WRITE')
@@ -397,12 +360,12 @@ var idb = sdb, PeopleDB = idb.req(PeopleDBschema, function(db){
 			]
 		});
 	
-	/**/
+	
 	
 });
 
 console.log('idb', PeopleDB, '\n\n');
-
+*/
 
 
 

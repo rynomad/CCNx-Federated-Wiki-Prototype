@@ -3,6 +3,8 @@
 # chars that defaults to 16 and returns a random id.
 
 random_id = (chars = 16) ->
+
+  console.log 'RANDOM ID'
   [0...chars].map( ->
     Math.floor(Math.random() * 16).toString(16)
   ).join('')

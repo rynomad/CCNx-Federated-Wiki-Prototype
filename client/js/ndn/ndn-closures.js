@@ -50,6 +50,7 @@ ContentClosure.prototype.upcall = function(kind, upcallInfo) {
     if (kind == Closure.UPCALL_INTEREST_TIMED_OUT) {
         if (!this.didOnStart) {
             // We have not received a segments to start the content yet, so assume the URI can't be fetched.
+            console.log('interest timed out');
             this.callback();
             return Closure.RESULT_OK;
         }
@@ -273,31 +274,43 @@ AsyncPutClosure.prototype.upcall = function(kind, upcallInfo) {
 };
 
 
-var PublishClosure = function PublishClosure(database) {
+var PublishClosure = function PublishClosure(ndn) {
      	// Inherit from Closure.
 	Closure.call(this);
-	this.database = database;
+	this.ndn = ndn;
 	};
-	
+
 PublishClosure.prototype.upcall = function(kind, upcallInfo) {
-	console.log('started publish upcall');
+	console.log('started put upcall');
 	if (kind == Closure.UPCALL_FINAL) {
 		console.log('is this where things are stopping?');
-	} else if (kind == Closure.UPCALL_INTEREST) {
-		console.log('AsyncPutClosure.upcall() called.');
+	}  else if (kind == Closure.UPCALL_INTEREST) {
+	        console.log('PublishClosure.upcall() called.');
                 console.log("Host: " + this.ndn.host + ":" + this.ndn.port);
-		var interest = upcallInfo.interest;
+		        var interest = upcallInfo.interest;
 	        console.log('upcallInfo.interest',upcallInfo.interest);
-			console.log('si',si);
-			var co = new ContentObject(this.name, si, this.content, new Signature());
-			co.sign();
-			console.log('co',co);
-
-			upcallInfo.contentObject = co;
-			return Closure.RESULT_INTEREST_CONSUMED;
+	                var interestNameString = interest.name.getName();
+	                console.log('interestnamestring?', interest.name.getName());
+                        var NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+                          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get(interest.name.getName(), function(content) {
+				var interest = upcallInfo.interest;
+				var nameStr = interest.name.getName();
+				
+				var si = new SignedInfo();
+				console.log(content.signedInfo);
+			        var co = new ContentObject(new Name(nameStr), si, content.page, new Signature());
+			        co.sign();
+			        console.log('co',Closure);
+			        upcallInfo.contentObject = co;
+			        console.log('co',upcallInfo.toString());
+			        
+                          });
+                        });
+                        return Closure.RESULT_INTEREST_CONSUMED;
 		}
 		return Closure.RESULT_OK;
 };
+
 
 /*
  * A SegmentStore stores segments until they are retrieved in order starting with segment 0.

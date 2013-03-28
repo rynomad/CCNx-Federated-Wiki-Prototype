@@ -16,10 +16,10 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
   name = new Name("/sfw/#{slug}")
   interest = new Interest(name)
   template = {}
-  console.log(ndn)
+  
   getCallback = (json, version) ->
     if json != undefined
-      console.log(json)
+      console.log('calling',json)
       page = JSON.parse(json)
       page.version = version
       whenGotten(page, site) 
@@ -28,8 +28,22 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
       whenNotGotten()
   
   getClosure = new ContentClosure(ndn, name, interest, getCallback)
+  
+  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
 
-  ndn.expressInterest(name, getClosure, template)
+    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get(('/sfw/' + slug), (content) ->
+      console.log content
+      if content?
+        page = content.page
+        whenGotten(page, site)
+      else
+        ndn.expressInterest(name, getClosure, template)
+    )
+  )
+  
+
+#  ndn.expressInterest(name, getClosure, template)
+
 
 pageHandler.get = ({whenGotten,whenNotGotten,pageInformation,ndn}) ->
 
@@ -39,7 +53,6 @@ pageHandler.get = ({whenGotten,whenNotGotten,pageInformation,ndn}) ->
       return whenGotten( localPage, 'local' )
 
   pageHandler.context = ['view'] unless pageHandler.context.length
-  console.log(ndn)
   recursiveGet
     pageInformation: pageInformation
     whenGotten: whenGotten
@@ -77,12 +90,17 @@ pushToServer = (pageElement, pagePutInfo, action) ->
   timestamp = signedInfo.timestamp.msec
   console.log(signedInfo.timestamp.msec)
 
-  name = new Name('/sfw/' + pagePutInfo.slug + '/' + timestamp)
+  indexName = '/sfw/' + pagePutInfo.slug
+  
+  fullname = indexName + '/' + timestamp
+  name = new Name(fullname)
+  ccnName = new Name(fullname)
   console.log('name: ', name)
 
   prefix = new Name('/sfw/' + pagePutInfo.slug)
   console.log(prefix)
   page = pageElement.data('data')
+  page.version = timestamp
 
   page.story = switch action.type
     when 'move'
@@ -114,17 +132,18 @@ pushToServer = (pageElement, pagePutInfo, action) ->
       log "Unfamiliar action:", action
       page.story
 
-  json = JSON.stringify(page)
-  putClosure = new AsyncPutClosure(ndn, name, json, signedInfo)
+  putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo)
   i = 0
-
-  if NDN.CSTable[0] == undefined
+  console.log page
+  ###
+  if NDN.CSTable[i] == undefined
     console.log ('REGING')
     ndn.registerPrefix(prefix, putClosure)
+    i++
   else
     while i < NDN.CSTable.length
       console.log NDN.CSTable[i]
-      if page.title == JSON.parse(NDN.CSTable[i].closure.content).title
+      if page.title == NDN.CSTable[i].closure.content.title
         NDN.CSTable[i].closure.content = json
         ping = "pinged"
       else 
@@ -132,11 +151,43 @@ pushToServer = (pageElement, pagePutInfo, action) ->
         ndn.registerPrefix(prefix, putClosure)
       i++
       
-      
-  ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB
-  
-  co = new ContentObject(name, signedInfo, page, new Signature())
   ###
+  ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB ###
+  console.log NDN.CSTable
+  pageCO = new ContentObject(ccnName, signedInfo, page, new Signature())
+  pageCO.sign()
+  console.log 'pageCO',pageCO    
+  pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
+  console.log pageItem
+  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
+    console.log 'testings'
+    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').index('name').get(pageItem.name, (content)  ->
+      console.log content
+      if content?
+        NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id)
+        NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+        console.log 'indexedDB item replaced'
+        i = 0
+        for item in NDN.CSTable
+          console.log NDN.CSTable, i
+          console.log pageItem.page.title, item.closure.content
+          if pageItem.page.title == JSON.parse(item.closure.content).title
+            item.closure.content = JSON.stringify(pageItem.page)
+            console.log 'closure content replaced'
+      else
+        NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+        putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(pageItem.page), signedInfo)
+        ndn.registerPrefix(prefix, putClosure)
+      
+    )
+  )
+  
+  
+
+ 
+  
+  
+  ### ### 
 
 
 pageHandler.put = (pageElement, action) ->

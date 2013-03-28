@@ -472,36 +472,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./active.coffee":9,"./refresh.coffee":10}],4:[function(require,module,exports){(function() {
-
-  module.exports = function(page) {
-    var p1, p2, synopsis;
-    synopsis = page.synopsis;
-    if ((page != null) && (page.story != null)) {
-      p1 = page.story[0];
-      p2 = page.story[1];
-      if (p1 && p1.type === 'paragraph') {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && p2.type === 'paragraph') {
-        synopsis || (synopsis = p2.text);
-      }
-      if (p1 && (p1.text != null)) {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && (p2.text != null)) {
-        synopsis || (synopsis = p2.text);
-      }
-      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
-    } else {
-      synopsis = 'A page with no story.';
-    }
-    return synopsis;
-  };
-
-}).call(this);
-
-},{}],5:[function(require,module,exports){(function() {
+},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./active.coffee":9,"./refresh.coffee":10}],5:[function(require,module,exports){(function() {
   var util;
 
   module.exports = wiki.util = util = {};
@@ -628,6 +599,35 @@
 
 }).call(this);
 
+},{}],4:[function(require,module,exports){(function() {
+
+  module.exports = function(page) {
+    var p1, p2, synopsis;
+    synopsis = page.synopsis;
+    if ((page != null) && (page.story != null)) {
+      p1 = page.story[0];
+      p2 = page.story[1];
+      if (p1 && p1.type === 'paragraph') {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && p2.type === 'paragraph') {
+        synopsis || (synopsis = p2.text);
+      }
+      if (p1 && (p1.text != null)) {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && (p2.text != null)) {
+        synopsis || (synopsis = p2.text);
+      }
+      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
+    } else {
+      synopsis = 'A page with no story.';
+    }
+    return synopsis;
+  };
+
+}).call(this);
+
 },{}],9:[function(require,module,exports){(function() {
   var active, findScrollContainer, scrollTo;
 
@@ -706,17 +706,16 @@
   };
 
   recursiveGet = function(_arg) {
-    var getCallback, getClosure, interest, localContext, name, ndn, pageInformation, rev, site, slug, template, whenGotten, whenNotGotten;
+    var NeighborNetDB, getCallback, getClosure, interest, localContext, name, ndn, pageInformation, rev, site, slug, template, whenGotten, whenNotGotten;
     pageInformation = _arg.pageInformation, whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, localContext = _arg.localContext, ndn = _arg.ndn;
     slug = pageInformation.slug, rev = pageInformation.rev, site = pageInformation.site;
     name = new Name("/sfw/" + slug);
     interest = new Interest(name);
     template = {};
-    console.log(ndn);
     getCallback = function(json, version) {
       var page;
       if (json !== void 0) {
-        console.log(json);
+        console.log('calling', json);
         page = JSON.parse(json);
         page.version = version;
         return whenGotten(page, site);
@@ -726,7 +725,18 @@
       }
     };
     getClosure = new ContentClosure(ndn, name, interest, getCallback);
-    return ndn.expressInterest(name, getClosure, template);
+    return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get('/sfw/' + slug, function(content) {
+        var page;
+        console.log(content);
+        if (content != null) {
+          page = content.page;
+          return whenGotten(page, site);
+        } else {
+          return ndn.expressInterest(name, getClosure, template);
+        }
+      });
+    });
   };
 
   pageHandler.get = function(_arg) {
@@ -743,7 +753,6 @@
     if (!pageHandler.context.length) {
       pageHandler.context = ['view'];
     }
-    console.log(ndn);
     return recursiveGet({
       pageInformation: pageInformation,
       whenGotten: whenGotten,
@@ -783,7 +792,7 @@
   };
 
   pushToServer = function(pageElement, pagePutInfo, action) {
-    var i, idx, json, name, ndn, page, prefix, putClosure, server, signedInfo, timestamp, _results;
+    var NeighborNetDB, ccnName, fullname, i, idx, indexName, name, ndn, page, pageCO, pageItem, prefix, putClosure, server, signedInfo, timestamp;
     console.log('pageElement:', pageElement.attr('id'));
     console.log('pagePutInfo:', pagePutInfo);
     console.log('action:', action);
@@ -796,11 +805,15 @@
     signedInfo.freshnessSeconds = 5;
     timestamp = signedInfo.timestamp.msec;
     console.log(signedInfo.timestamp.msec);
-    name = new Name('/sfw/' + pagePutInfo.slug + '/' + timestamp);
+    indexName = '/sfw/' + pagePutInfo.slug;
+    fullname = indexName + '/' + timestamp;
+    name = new Name(fullname);
+    ccnName = new Name(fullname);
     console.log('name: ', name);
     prefix = new Name('/sfw/' + pagePutInfo.slug);
     console.log(prefix);
     page = pageElement.data('data');
+    page.version = timestamp;
     page.story = (function() {
       switch (action.type) {
         case 'move':
@@ -837,26 +850,74 @@
           return page.story;
       }
     })();
-    json = JSON.stringify(page);
-    putClosure = new AsyncPutClosure(ndn, name, json, signedInfo);
+    putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo);
     i = 0;
-    if (NDN.CSTable[0] === void 0) {
-      console.log('REGING');
-      return ndn.registerPrefix(prefix, putClosure);
-    } else {
-      _results = [];
-      while (i < NDN.CSTable.length) {
-        console.log(NDN.CSTable[i]);
-        if (page.title === JSON.parse(NDN.CSTable[i].closure.content).title) {
-          NDN.CSTable[i].closure.content = json;
+    console.log(page);
+    /*
+    if NDN.CSTable[i] == undefined
+      console.log ('REGING')
+      ndn.registerPrefix(prefix, putClosure)
+      i++
+    else
+      while i < NDN.CSTable.length
+        console.log NDN.CSTable[i]
+        if page.title == NDN.CSTable[i].closure.content.title
+          NDN.CSTable[i].closure.content = json
+          ping = "pinged"
+        else 
+          console.log ('REGIN PREFIX')
+          ndn.registerPrefix(prefix, putClosure)
+        i++
+    */
+
+    /* Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB
+    */
+
+    console.log(NDN.CSTable);
+    pageCO = new ContentObject(ccnName, signedInfo, page, new Signature());
+    pageCO.sign();
+    console.log('pageCO', pageCO);
+    pageItem = {
+      name: indexName,
+      fullName: fullname,
+      signedInfo: signedInfo,
+      page: page
+    };
+    console.log(pageItem);
+    return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+      console.log('testings');
+      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').index('name').get(pageItem.name, function(content) {
+        var item, _i, _len, _ref, _results;
+        console.log(content);
+        if (content != null) {
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id);
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
+          console.log('indexedDB item replaced');
+          i = 0;
+          _ref = NDN.CSTable;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            item = _ref[_i];
+            console.log(NDN.CSTable, i);
+            console.log(pageItem.page.title, item.closure.content);
+            if (pageItem.page.title === JSON.parse(item.closure.content).title) {
+              item.closure.content = JSON.stringify(pageItem.page);
+              _results.push(console.log('closure content replaced'));
+            } else {
+              _results.push(void 0);
+            }
+          }
+          return _results;
         } else {
-          console.log('REGIN PREFIX');
-          ndn.registerPrefix(prefix, putClosure);
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
+          putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(pageItem.page), signedInfo);
+          return ndn.registerPrefix(prefix, putClosure);
         }
-        _results.push(i++);
-      }
-      return _results;
-    }
+      });
+    });
+    /*
+    */
+
   };
 
   pageHandler.put = function(pageElement, action) {
@@ -1455,13 +1516,22 @@
   };
 
   module.exports = refresh = wiki.refresh = function() {
-    var $page, createGhostPage, ndn, pageInformation, registerNeighbors, rev, server, slug, whenGotten, _ref;
+    var $page, createGhostPage, getndn, pageInformation, pubndn, registerNeighbors, rev, server, slug, whenGotten, _ref;
     server = location.host.split(':')[0];
-    ndn = new NDN({
+    getndn = new NDN({
       host: server
     });
-    console.log(ndn);
+    pubndn = new NDN({
+      host: server
+    });
     $page = $(this);
+    /* Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests 
+    pagePrefix = new Name ('/sfw/')
+    pageClosure = new PublishClosure()
+    
+    pubndn.registerPrefix(pagePrefix, pageClosure)
+    */
+
     _ref = $page.attr('id').split('_rev'), slug = _ref[0], rev = _ref[1];
     pageInformation = {
       slug: slug,
@@ -1543,12 +1613,11 @@
       wiki.buildPage(data, siteFound, $page);
       return registerNeighbors(data, siteFound);
     };
-    console.log('pagestart');
     return pageHandler.get({
       whenGotten: whenGotten,
       whenNotGotten: createGhostPage,
       pageInformation: pageInformation,
-      ndn: ndn
+      ndn: getndn
     });
   };
 
