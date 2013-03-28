@@ -11,35 +11,52 @@ pageFromLocalStorage = (slug)->
   else
     undefined
 
+
+
 recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn}) ->
-  {slug,rev,site} = pageInformation
-  name = new Name("/sfw/#{slug}")
-  interest = new Interest(name)
-  template = {}
-  
+  {ccnName,slug,rev,site} = pageInformation
+  console.log pageInformation
+  console.log ndn
   getCallback = (json, version) ->
     if json != undefined
       console.log('calling',json)
       page = JSON.parse(json)
       page.version = version
       whenGotten(page, site) 
+      slug = wiki.asSlug(page.title)
+      indexName = '/sfw/' + slug
+      action = {type: 'fork'}
+      publishToIndexedDB(page, indexName, action)
     else
       console.log ('json == null')
       whenNotGotten()
   
-  getClosure = new ContentClosure(ndn, name, interest, getCallback)
   
-  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
 
-    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get(('/sfw/' + slug), (content) ->
-      console.log content
-      if content?
-        page = content.page
-        whenGotten(page, site)
-      else
-        ndn.expressInterest(name, getClosure, template)
+  if ccnName != undefined
+    console.log ccnName
+    name = new Name(ccnName)
+    interest = new Interest(name)
+    getClosure = new ContentClosure(ndn, name, interest, getCallback)
+    ndn.expressInterest(name, getClosure, template)
+  else
+    name = new Name("/sfw/#{slug}")
+    interest = new Interest(name)
+    template = {}
+    getClosure = new ContentClosure(ndn, name, interest, getCallback)
+
+  
+    NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
+
+      NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get(('/sfw/' + slug), (content) ->
+        console.log content
+        if content?
+          page = content.page
+          whenGotten(page, site)
+        else
+          ndn.expressInterest(name, getClosure, template)
+      )
     )
-  )
   
 
 #  ndn.expressInterest(name, getClosure, template)
@@ -76,11 +93,9 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
   localStorage[pagePutInfo.slug] = JSON.stringify(page)
   addToJournal pageElement.find('.journal'), action
 
-pushToServer = (pageElement, pagePutInfo, action) ->
-  console.log('pageElement:',pageElement.attr('id'))
-  console.log('pagePutInfo:', pagePutInfo)
-  console.log('action:', action)
 
+  
+publishToIndexedDB = (page, indexName, action) ->
   server = location.host.split(':')
   server = server[0]
   ndn = new NDN({host: server})
@@ -90,16 +105,16 @@ pushToServer = (pageElement, pagePutInfo, action) ->
   timestamp = signedInfo.timestamp.msec
   console.log(signedInfo.timestamp.msec)
 
-  indexName = '/sfw/' + pagePutInfo.slug
   
+  prefix = new Name(indexName)
   fullname = indexName + '/' + timestamp
   name = new Name(fullname)
   ccnName = new Name(fullname)
   console.log('name: ', name)
 
-  prefix = new Name('/sfw/' + pagePutInfo.slug)
+
   console.log(prefix)
-  page = pageElement.data('data')
+
   page.version = timestamp
 
   page.story = switch action.type
@@ -133,30 +148,26 @@ pushToServer = (pageElement, pagePutInfo, action) ->
       page.story
 
   putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo)
+  publishClosure = new PublishClosure(ndn)
   i = 0
   console.log page
   ###
-  if NDN.CSTable[i] == undefined
-    console.log ('REGING')
-    ndn.registerPrefix(prefix, putClosure)
-    i++
-  else
-    while i < NDN.CSTable.length
-      console.log NDN.CSTable[i]
-      if page.title == NDN.CSTable[i].closure.content.title
-        NDN.CSTable[i].closure.content = json
-        ping = "pinged"
-      else 
+
+  while i < NDN.CSTable.length
+    console.log NDN.CSTable[i]
+    if page.title == NDN.CSTable[i].closure.content.title
+      NDN.CSTable[i].closure.content = json
+      ping = "pinged"
+    else 
         console.log ('REGIN PREFIX')
         ndn.registerPrefix(prefix, putClosure)
       i++
       
   ###
   ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB ###
+  
   console.log NDN.CSTable
-  pageCO = new ContentObject(ccnName, signedInfo, page, new Signature())
-  pageCO.sign()
-  console.log 'pageCO',pageCO    
+ 
   pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
   console.log pageItem
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
@@ -173,6 +184,7 @@ pushToServer = (pageElement, pagePutInfo, action) ->
           console.log pageItem.page.title, item.closure.content
           if pageItem.page.title == JSON.parse(item.closure.content).title
             item.closure.content = JSON.stringify(pageItem.page)
+            item.closure.name = new Name(pageItem.fullName)
             console.log 'closure content replaced'
       else
         NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
@@ -182,8 +194,14 @@ pushToServer = (pageElement, pagePutInfo, action) ->
     )
   )
   
-  
+pushToServer = (pageElement, pagePutInfo, action) ->
+  console.log('pageElement:',pageElement.attr('id'))
+  console.log('pagePutInfo:', pagePutInfo)
+  console.log('action:', action)
+  page = pageElement.data('data')
 
+  indexName = '/sfw/' + pagePutInfo.slug  
+  publishToIndexedDB(page, indexName, action)
  
   
   
@@ -191,7 +209,7 @@ pushToServer = (pageElement, pagePutInfo, action) ->
 
 
 pageHandler.put = (pageElement, action) ->
-
+  console.log action
   checkedSite = () ->
     switch site = pageElement.data('site')
       when 'origin', 'local', 'view' then null

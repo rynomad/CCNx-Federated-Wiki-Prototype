@@ -259,16 +259,18 @@ AsyncPutClosure.prototype.upcall = function(kind, upcallInfo) {
 	} else if (kind == Closure.UPCALL_INTEREST) {
 		console.log('AsyncPutClosure.upcall() called.');
                 console.log("Host: " + this.ndn.host + ":" + this.ndn.port);
-                console.log('truename'+this.name);
+                console.log('truename',this.name);
+                console.log(this.content);
 			var interest = upcallInfo.interest;
-	        console.log('upcallInfo.interest',DataUtils.toString(upcallInfo.interest.name.components[0]));
-			var si = this.signed;
-			console.log('si',si);
-			var co = new ContentObject(this.name, si, this.content, new Signature());
-			co.sign();
-			console.log('co',co);
-			upcallInfo.contentObject = co;
-			return Closure.RESULT_INTEREST_CONSUMED;
+			if (interest.matches_name(this.name) == true) {
+	                        var si = this.signed;
+		        	console.log('si',si);
+		        	var co = new ContentObject(this.name, si, this.content, new Signature());
+		        	co.sign();
+		        	console.log('co',co);
+		        	upcallInfo.contentObject = co;
+		        	return Closure.RESULT_INTEREST_CONSUMED;
+		        }
 		}
 		return Closure.RESULT_OK;
 };
@@ -291,21 +293,21 @@ PublishClosure.prototype.upcall = function(kind, upcallInfo) {
 	        console.log('upcallInfo.interest',upcallInfo.interest);
 	                var interestNameString = interest.name.getName();
 	                console.log('interestnamestring?', interest.name.getName());
-                        var NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-                          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get(interest.name.getName(), function(content) {
-				var interest = upcallInfo.interest;
-				var nameStr = interest.name.getName();
-				
-				var si = new SignedInfo();
-				console.log(content.signedInfo);
-			        var co = new ContentObject(new Name(nameStr), si, content.page, new Signature());
-			        co.sign();
-			        console.log('co',Closure);
-			        upcallInfo.contentObject = co;
-			        console.log('co',upcallInfo.toString());
-			        
-                          });
-                        });
+                var NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+                  NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get(interest.name.getName(), function(content) {
+			var interest = upcallInfo.interest;
+			var nameStr = interest.name.getName();
+			
+			var si = new SignedInfo();
+			console.log(content.signedInfo);
+		        var co = new ContentObject(new Name(nameStr), si, content.page, new Signature());
+		        co.sign();
+		        console.log('co',Closure);
+		        upcallInfo.contentObject = co;
+		        console.log('co',upcallInfo.toString());
+		        
+                  });
+                });
                         return Closure.RESULT_INTEREST_CONSUMED;
 		}
 		return Closure.RESULT_OK;

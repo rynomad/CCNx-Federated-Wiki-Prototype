@@ -115,7 +115,7 @@ emitTwins = wiki.emitTwins = ($page) ->
   server = location.host.split(':')[0]
 
   twinNdn = new NDN({host: server})
-  name = new Name('/sfw/' + slug + '.json')
+  name = new Name('/sfw/' + slug)
   interest = new Interest(name)
   i = 0
   template = {}
@@ -124,11 +124,12 @@ emitTwins = wiki.emitTwins = ($page) ->
   twinCallback = (json, version) ->
     if json != undefined
       page = JSON.parse(json)
+      console.log page.title
       page.version = version
       bin = if version > viewing then bins.newer
       else if version < viewing then bins.older
       else bins.same
-      bin.push page.title
+      bin.push page
       exclusions.push DataUtils.toNumbersFromString(page.version)
       console.log('exclusions ',exclusions)
 
@@ -138,9 +139,9 @@ emitTwins = wiki.emitTwins = ($page) ->
       twinClosure = new ContentClosure(twinNdn, name, interest, twinCallback)
       console.log('bins  ',bins)
       twins = []
-      if i < 5
-        twinNdn.expressInterest(name, twinClosure, template)
-        i++
+      
+      
+      
       
       for legend, bin of bins
         continue unless bin.length
@@ -151,14 +152,17 @@ emitTwins = wiki.emitTwins = ($page) ->
           """<img class="remote"
             src="/favicon.png"
             data-slug="#{slug}"
-            title="#{page.title}">
+            title="#{page.title}"
+            data-ccnName="/sfw/#{page.title}/#{page.version}">
           """
         twins.push "#{flags.join '&nbsp;'} #{legend}"
       $page.find('.twins').html """<p>#{twins.join ", "}</p>""" if twins
       console.log('twins',twins)
+      twinNdn.expressInterest(name, twinClosure, template)
+      console.log 'page.title', page.title
     else
       i++
-      console.log ('json == null')
+      console.log ('json == null for twins')
 
 
   twinClosure = new ContentClosure(twinNdn, name, interest, twinCallback)    
@@ -205,7 +209,7 @@ renderPageIntoPageElement = (pageData,$page, siteFound) ->
   for action in page.journal
     addToJournal $journal, action
 
-#  emitTwins $page
+  emitTwins $page
 
   $journal.append """
     <div class="control-buttons">
@@ -246,12 +250,22 @@ module.exports = refresh = wiki.refresh = ->
   pubndn = new NDN({host: server})
   $page = $(this)
   
-  ### Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests 
-  pagePrefix = new Name ('/sfw/')
-  pageClosure = new PublishClosure()
   
-  pubndn.registerPrefix(pagePrefix, pageClosure)
-  ### 
+  ### Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests ###
+  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
+    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor((cursor) ->
+      
+      console.log 'refresh cursor content', cursor.value.name
+      prefix = new Name(cursor.value.name)
+      si = new SignedInfo()
+      si.freshnessSeconds = 5
+      pubClosure = new AsyncPutClosure(pubndn, new Name(cursor.value.fullName), JSON.stringify(cursor.value.page), si)
+      pubndn.registerPrefix(new Name(cursor.value.name), pubClosure)
+      console.log 'published on pubndn'
+      cursor.continue()
+    )
+  )
+  ### ###
   
   
 

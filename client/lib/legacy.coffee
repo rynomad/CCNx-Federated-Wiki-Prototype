@@ -210,9 +210,16 @@ $ ->
       finishClick e, name
 
     .delegate 'img.remote', 'click', (e) ->
-      name = $(e.target).data('slug')
+      console.log 'TWINS????????????????????????????????????????????????????????????????//'
+      name = $(e.target).data('ccnname')
+      slug = $(e.target).data('slug')
+      console.log $(e.target)
       pageHandler.context = [$(e.target).data('site')]
-      finishClick e, name
+      pageHandler.get
+        whenGotten: refresh.whenGotten
+        whenNotGotten: refresh.createGhostPage
+        pageInformation: {ccnName: name, slug: slug}
+        ndn: refresh.getndn
 
     .delegate '.revision', 'dblclick', (e) ->
       e.preventDefault()

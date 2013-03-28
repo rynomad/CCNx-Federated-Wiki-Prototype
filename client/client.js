@@ -116,7 +116,7 @@
 
   active = require('./active.coffee');
 
-  refresh = require('./refresh.coffee');
+  refresh = wiki.refresh = require('./refresh.coffee');
 
   Array.prototype.last = function() {
     return this[this.length - 1];
@@ -364,10 +364,21 @@
       pageHandler.context = $(e.target).attr('title').split(' => ');
       return finishClick(e, name);
     }).delegate('img.remote', 'click', function(e) {
-      var name;
-      name = $(e.target).data('slug');
+      var name, slug;
+      console.log('TWINS????????????????????????????????????????????????????????????????//');
+      name = $(e.target).data('ccnname');
+      slug = $(e.target).data('slug');
+      console.log($(e.target));
       pageHandler.context = [$(e.target).data('site')];
-      return finishClick(e, name);
+      return pageHandler.get({
+        whenGotten: refresh.whenGotten,
+        whenNotGotten: refresh.createGhostPage,
+        pageInformation: {
+          ccnName: name,
+          slug: slug
+        },
+        ndn: refresh.getndn
+      });
     }).delegate('.revision', 'dblclick', function(e) {
       var $page, action, json, page, rev;
       e.preventDefault();
@@ -472,7 +483,36 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./active.coffee":9,"./refresh.coffee":10}],5:[function(require,module,exports){(function() {
+},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./active.coffee":9,"./refresh.coffee":10}],4:[function(require,module,exports){(function() {
+
+  module.exports = function(page) {
+    var p1, p2, synopsis;
+    synopsis = page.synopsis;
+    if ((page != null) && (page.story != null)) {
+      p1 = page.story[0];
+      p2 = page.story[1];
+      if (p1 && p1.type === 'paragraph') {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && p2.type === 'paragraph') {
+        synopsis || (synopsis = p2.text);
+      }
+      if (p1 && (p1.text != null)) {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && (p2.text != null)) {
+        synopsis || (synopsis = p2.text);
+      }
+      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
+    } else {
+      synopsis = 'A page with no story.';
+    }
+    return synopsis;
+  };
+
+}).call(this);
+
+},{}],5:[function(require,module,exports){(function() {
   var util;
 
   module.exports = wiki.util = util = {};
@@ -599,35 +639,6 @@
 
 }).call(this);
 
-},{}],4:[function(require,module,exports){(function() {
-
-  module.exports = function(page) {
-    var p1, p2, synopsis;
-    synopsis = page.synopsis;
-    if ((page != null) && (page.story != null)) {
-      p1 = page.story[0];
-      p2 = page.story[1];
-      if (p1 && p1.type === 'paragraph') {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && p2.type === 'paragraph') {
-        synopsis || (synopsis = p2.text);
-      }
-      if (p1 && (p1.text != null)) {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && (p2.text != null)) {
-        synopsis || (synopsis = p2.text);
-      }
-      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
-    } else {
-      synopsis = 'A page with no story.';
-    }
-    return synopsis;
-  };
-
-}).call(this);
-
 },{}],9:[function(require,module,exports){(function() {
   var active, findScrollContainer, scrollTo;
 
@@ -683,304 +694,7 @@
 
 }).call(this);
 
-},{}],6:[function(require,module,exports){(function() {
-  var addToJournal, pageFromLocalStorage, pageHandler, pushToLocal, pushToServer, recursiveGet, revision, state, util;
-
-  util = require('./util.coffee');
-
-  state = require('./state.coffee');
-
-  revision = require('./revision.coffee');
-
-  addToJournal = require('./addToJournal.coffee');
-
-  module.exports = pageHandler = {};
-
-  pageFromLocalStorage = function(slug) {
-    var json;
-    if (json = localStorage[slug]) {
-      return JSON.parse(json);
-    } else {
-      return void 0;
-    }
-  };
-
-  recursiveGet = function(_arg) {
-    var NeighborNetDB, getCallback, getClosure, interest, localContext, name, ndn, pageInformation, rev, site, slug, template, whenGotten, whenNotGotten;
-    pageInformation = _arg.pageInformation, whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, localContext = _arg.localContext, ndn = _arg.ndn;
-    slug = pageInformation.slug, rev = pageInformation.rev, site = pageInformation.site;
-    name = new Name("/sfw/" + slug);
-    interest = new Interest(name);
-    template = {};
-    getCallback = function(json, version) {
-      var page;
-      if (json !== void 0) {
-        console.log('calling', json);
-        page = JSON.parse(json);
-        page.version = version;
-        return whenGotten(page, site);
-      } else {
-        console.log('json == null');
-        return whenNotGotten();
-      }
-    };
-    getClosure = new ContentClosure(ndn, name, interest, getCallback);
-    return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get('/sfw/' + slug, function(content) {
-        var page;
-        console.log(content);
-        if (content != null) {
-          page = content.page;
-          return whenGotten(page, site);
-        } else {
-          return ndn.expressInterest(name, getClosure, template);
-        }
-      });
-    });
-  };
-
-  pageHandler.get = function(_arg) {
-    var localPage, ndn, pageInformation, whenGotten, whenNotGotten;
-    whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, pageInformation = _arg.pageInformation, ndn = _arg.ndn;
-    if (!pageInformation.site) {
-      if (localPage = pageFromLocalStorage(pageInformation.slug)) {
-        if (pageInformation.rev) {
-          localPage = revision.create(pageInformation.rev, localPage);
-        }
-        return whenGotten(localPage, 'local');
-      }
-    }
-    if (!pageHandler.context.length) {
-      pageHandler.context = ['view'];
-    }
-    return recursiveGet({
-      pageInformation: pageInformation,
-      whenGotten: whenGotten,
-      whenNotGotten: whenNotGotten,
-      localContext: _.clone(pageHandler.context),
-      ndn: ndn
-    });
-  };
-
-  pageHandler.context = [];
-
-  pushToLocal = function(pageElement, pagePutInfo, action) {
-    var page, site;
-    page = pageFromLocalStorage(pagePutInfo.slug);
-    if (action.type === 'create') {
-      page = {
-        title: action.item.title
-      };
-    }
-    page || (page = pageElement.data("data"));
-    if (page.journal == null) {
-      page.journal = [];
-    }
-    if ((site = action['fork']) != null) {
-      page.journal = page.journal.concat({
-        'type': 'fork',
-        'site': site
-      });
-      delete action['fork'];
-    }
-    page.journal = page.journal.concat(action);
-    page.story = $(pageElement).find(".item").map(function() {
-      return $(this).data("item");
-    }).get();
-    localStorage[pagePutInfo.slug] = JSON.stringify(page);
-    return addToJournal(pageElement.find('.journal'), action);
-  };
-
-  pushToServer = function(pageElement, pagePutInfo, action) {
-    var NeighborNetDB, ccnName, fullname, i, idx, indexName, name, ndn, page, pageCO, pageItem, prefix, putClosure, server, signedInfo, timestamp;
-    console.log('pageElement:', pageElement.attr('id'));
-    console.log('pagePutInfo:', pagePutInfo);
-    console.log('action:', action);
-    server = location.host.split(':');
-    server = server[0];
-    ndn = new NDN({
-      host: server
-    });
-    signedInfo = new SignedInfo();
-    signedInfo.freshnessSeconds = 5;
-    timestamp = signedInfo.timestamp.msec;
-    console.log(signedInfo.timestamp.msec);
-    indexName = '/sfw/' + pagePutInfo.slug;
-    fullname = indexName + '/' + timestamp;
-    name = new Name(fullname);
-    ccnName = new Name(fullname);
-    console.log('name: ', name);
-    prefix = new Name('/sfw/' + pagePutInfo.slug);
-    console.log(prefix);
-    page = pageElement.data('data');
-    page.version = timestamp;
-    page.story = (function() {
-      switch (action.type) {
-        case 'move':
-          return action.order.map(function(id) {
-            return page.story.filter(function(para) {
-              return id === para.id;
-            })[0] || (function() {
-              throw 'Ignoring move. Try reload.';
-            })();
-          });
-        case 'add':
-          idx = page.story.map(function(para) {
-            return para.id;
-          }).indexOf(action.after) + 1;
-          page.story.splice(idx, 0, action.item);
-          return page.story;
-        case 'remove':
-          return page.story.filter(function(para) {
-            return (para != null ? para.id : void 0) !== action.id;
-          });
-        case 'edit':
-          return page.story.map(function(para) {
-            if (para.id === action.id) {
-              return action.item;
-            } else {
-              return para;
-            }
-          });
-        case 'create':
-        case 'fork':
-          return page.story || [];
-        default:
-          log("Unfamiliar action:", action);
-          return page.story;
-      }
-    })();
-    putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo);
-    i = 0;
-    console.log(page);
-    /*
-    if NDN.CSTable[i] == undefined
-      console.log ('REGING')
-      ndn.registerPrefix(prefix, putClosure)
-      i++
-    else
-      while i < NDN.CSTable.length
-        console.log NDN.CSTable[i]
-        if page.title == NDN.CSTable[i].closure.content.title
-          NDN.CSTable[i].closure.content = json
-          ping = "pinged"
-        else 
-          console.log ('REGIN PREFIX')
-          ndn.registerPrefix(prefix, putClosure)
-        i++
-    */
-
-    /* Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB
-    */
-
-    console.log(NDN.CSTable);
-    pageCO = new ContentObject(ccnName, signedInfo, page, new Signature());
-    pageCO.sign();
-    console.log('pageCO', pageCO);
-    pageItem = {
-      name: indexName,
-      fullName: fullname,
-      signedInfo: signedInfo,
-      page: page
-    };
-    console.log(pageItem);
-    return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-      console.log('testings');
-      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').index('name').get(pageItem.name, function(content) {
-        var item, _i, _len, _ref, _results;
-        console.log(content);
-        if (content != null) {
-          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id);
-          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
-          console.log('indexedDB item replaced');
-          i = 0;
-          _ref = NDN.CSTable;
-          _results = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            item = _ref[_i];
-            console.log(NDN.CSTable, i);
-            console.log(pageItem.page.title, item.closure.content);
-            if (pageItem.page.title === JSON.parse(item.closure.content).title) {
-              item.closure.content = JSON.stringify(pageItem.page);
-              _results.push(console.log('closure content replaced'));
-            } else {
-              _results.push(void 0);
-            }
-          }
-          return _results;
-        } else {
-          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
-          putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(pageItem.page), signedInfo);
-          return ndn.registerPrefix(prefix, putClosure);
-        }
-      });
-    });
-    /*
-    */
-
-  };
-
-  pageHandler.put = function(pageElement, action) {
-    var checkedSite, forkFrom, pagePutInfo;
-    checkedSite = function() {
-      var site;
-      switch (site = pageElement.data('site')) {
-        case 'origin':
-        case 'local':
-        case 'view':
-          return null;
-        case location.host:
-          return null;
-        default:
-          return site;
-      }
-    };
-    pagePutInfo = {
-      slug: pageElement.attr('id').split('_rev')[0],
-      rev: pageElement.attr('id').split('_rev')[1],
-      site: checkedSite(),
-      local: pageElement.hasClass('local')
-    };
-    forkFrom = pagePutInfo.site;
-    wiki.log('pageHandler.put', action, pagePutInfo);
-    if (wiki.useLocalStorage()) {
-      if (pagePutInfo.site != null) {
-        wiki.log('remote => local');
-      } else if (!pagePutInfo.local) {
-        wiki.log('origin => local');
-        action.site = forkFrom = location.host;
-      }
-    }
-    action.date = (new Date()).getTime();
-    if (action.site === 'origin') {
-      delete action.site;
-    }
-    if (forkFrom) {
-      pageElement.find('h1 img').attr('src', '/favicon.png');
-      pageElement.find('h1 a').attr('href', '/');
-      pageElement.data('site', null);
-      pageElement.removeClass('remote');
-      state.setUrl();
-      if (action.type !== 'fork') {
-        action.fork = forkFrom;
-        addToJournal(pageElement.find('.journal'), {
-          type: 'fork',
-          site: forkFrom,
-          date: action.date
-        });
-      }
-    }
-    if (wiki.useLocalStorage() || pagePutInfo.site === 'local') {
-      pushToLocal(pageElement, pagePutInfo, action);
-      return pageElement.addClass("local");
-    } else {
-      return pushToServer(pageElement, pagePutInfo, action);
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5,"./state.coffee":8,"./revision.coffee":11,"./addToJournal.coffee":12}],7:[function(require,module,exports){(function() {
+},{}],7:[function(require,module,exports){(function() {
   var getScript, plugin, scripts, util;
 
   util = require('./util.coffee');
@@ -1233,7 +947,321 @@
 
 }).call(this);
 
-},{"./active.coffee":9}],10:[function(require,module,exports){(function() {
+},{"./active.coffee":9}],6:[function(require,module,exports){(function() {
+  var addToJournal, pageFromLocalStorage, pageHandler, publishToIndexedDB, pushToLocal, pushToServer, recursiveGet, revision, state, util;
+
+  util = require('./util.coffee');
+
+  state = require('./state.coffee');
+
+  revision = require('./revision.coffee');
+
+  addToJournal = require('./addToJournal.coffee');
+
+  module.exports = pageHandler = {};
+
+  pageFromLocalStorage = function(slug) {
+    var json;
+    if (json = localStorage[slug]) {
+      return JSON.parse(json);
+    } else {
+      return void 0;
+    }
+  };
+
+  recursiveGet = function(_arg) {
+    var NeighborNetDB, ccnName, getCallback, getClosure, interest, localContext, name, ndn, pageInformation, rev, site, slug, template, whenGotten, whenNotGotten;
+    pageInformation = _arg.pageInformation, whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, localContext = _arg.localContext, ndn = _arg.ndn;
+    ccnName = pageInformation.ccnName, slug = pageInformation.slug, rev = pageInformation.rev, site = pageInformation.site;
+    console.log(pageInformation);
+    console.log(ndn);
+    getCallback = function(json, version) {
+      var action, indexName, page;
+      if (json !== void 0) {
+        console.log('calling', json);
+        page = JSON.parse(json);
+        page.version = version;
+        whenGotten(page, site);
+        slug = wiki.asSlug(page.title);
+        indexName = '/sfw/' + slug;
+        action = {
+          type: 'fork'
+        };
+        return publishToIndexedDB(page, indexName, action);
+      } else {
+        console.log('json == null');
+        return whenNotGotten();
+      }
+    };
+    if (ccnName !== void 0) {
+      console.log(ccnName);
+      name = new Name(ccnName);
+      interest = new Interest(name);
+      getClosure = new ContentClosure(ndn, name, interest, getCallback);
+      return ndn.expressInterest(name, getClosure, template);
+    } else {
+      name = new Name("/sfw/" + slug);
+      interest = new Interest(name);
+      template = {};
+      getClosure = new ContentClosure(ndn, name, interest, getCallback);
+      return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+        return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get('/sfw/' + slug, function(content) {
+          var page;
+          console.log(content);
+          if (content != null) {
+            page = content.page;
+            return whenGotten(page, site);
+          } else {
+            return ndn.expressInterest(name, getClosure, template);
+          }
+        });
+      });
+    }
+  };
+
+  pageHandler.get = function(_arg) {
+    var localPage, ndn, pageInformation, whenGotten, whenNotGotten;
+    whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, pageInformation = _arg.pageInformation, ndn = _arg.ndn;
+    if (!pageInformation.site) {
+      if (localPage = pageFromLocalStorage(pageInformation.slug)) {
+        if (pageInformation.rev) {
+          localPage = revision.create(pageInformation.rev, localPage);
+        }
+        return whenGotten(localPage, 'local');
+      }
+    }
+    if (!pageHandler.context.length) {
+      pageHandler.context = ['view'];
+    }
+    return recursiveGet({
+      pageInformation: pageInformation,
+      whenGotten: whenGotten,
+      whenNotGotten: whenNotGotten,
+      localContext: _.clone(pageHandler.context),
+      ndn: ndn
+    });
+  };
+
+  pageHandler.context = [];
+
+  pushToLocal = function(pageElement, pagePutInfo, action) {
+    var page, site;
+    page = pageFromLocalStorage(pagePutInfo.slug);
+    if (action.type === 'create') {
+      page = {
+        title: action.item.title
+      };
+    }
+    page || (page = pageElement.data("data"));
+    if (page.journal == null) {
+      page.journal = [];
+    }
+    if ((site = action['fork']) != null) {
+      page.journal = page.journal.concat({
+        'type': 'fork',
+        'site': site
+      });
+      delete action['fork'];
+    }
+    page.journal = page.journal.concat(action);
+    page.story = $(pageElement).find(".item").map(function() {
+      return $(this).data("item");
+    }).get();
+    localStorage[pagePutInfo.slug] = JSON.stringify(page);
+    return addToJournal(pageElement.find('.journal'), action);
+  };
+
+  publishToIndexedDB = function(page, indexName, action) {
+    var NeighborNetDB, ccnName, fullname, i, idx, name, ndn, pageItem, prefix, publishClosure, putClosure, server, signedInfo, timestamp;
+    server = location.host.split(':');
+    server = server[0];
+    ndn = new NDN({
+      host: server
+    });
+    signedInfo = new SignedInfo();
+    signedInfo.freshnessSeconds = 5;
+    timestamp = signedInfo.timestamp.msec;
+    console.log(signedInfo.timestamp.msec);
+    prefix = new Name(indexName);
+    fullname = indexName + '/' + timestamp;
+    name = new Name(fullname);
+    ccnName = new Name(fullname);
+    console.log('name: ', name);
+    console.log(prefix);
+    page.version = timestamp;
+    page.story = (function() {
+      switch (action.type) {
+        case 'move':
+          return action.order.map(function(id) {
+            return page.story.filter(function(para) {
+              return id === para.id;
+            })[0] || (function() {
+              throw 'Ignoring move. Try reload.';
+            })();
+          });
+        case 'add':
+          idx = page.story.map(function(para) {
+            return para.id;
+          }).indexOf(action.after) + 1;
+          page.story.splice(idx, 0, action.item);
+          return page.story;
+        case 'remove':
+          return page.story.filter(function(para) {
+            return (para != null ? para.id : void 0) !== action.id;
+          });
+        case 'edit':
+          return page.story.map(function(para) {
+            if (para.id === action.id) {
+              return action.item;
+            } else {
+              return para;
+            }
+          });
+        case 'create':
+        case 'fork':
+          return page.story || [];
+        default:
+          log("Unfamiliar action:", action);
+          return page.story;
+      }
+    })();
+    putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo);
+    publishClosure = new PublishClosure(ndn);
+    i = 0;
+    console.log(page);
+    /*
+    
+    while i < NDN.CSTable.length
+      console.log NDN.CSTable[i]
+      if page.title == NDN.CSTable[i].closure.content.title
+        NDN.CSTable[i].closure.content = json
+        ping = "pinged"
+      else 
+          console.log ('REGIN PREFIX')
+          ndn.registerPrefix(prefix, putClosure)
+        i++
+    */
+
+    /* Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB
+    */
+
+    console.log(NDN.CSTable);
+    pageItem = {
+      name: indexName,
+      fullName: fullname,
+      signedInfo: signedInfo,
+      page: page
+    };
+    console.log(pageItem);
+    return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+      console.log('testings');
+      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').index('name').get(pageItem.name, function(content) {
+        var item, _i, _len, _ref, _results;
+        console.log(content);
+        if (content != null) {
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id);
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
+          console.log('indexedDB item replaced');
+          i = 0;
+          _ref = NDN.CSTable;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            item = _ref[_i];
+            console.log(NDN.CSTable, i);
+            console.log(pageItem.page.title, item.closure.content);
+            if (pageItem.page.title === JSON.parse(item.closure.content).title) {
+              item.closure.content = JSON.stringify(pageItem.page);
+              item.closure.name = new Name(pageItem.fullName);
+              _results.push(console.log('closure content replaced'));
+            } else {
+              _results.push(void 0);
+            }
+          }
+          return _results;
+        } else {
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
+          putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(pageItem.page), signedInfo);
+          return ndn.registerPrefix(prefix, putClosure);
+        }
+      });
+    });
+  };
+
+  pushToServer = function(pageElement, pagePutInfo, action) {
+    var indexName, page;
+    console.log('pageElement:', pageElement.attr('id'));
+    console.log('pagePutInfo:', pagePutInfo);
+    console.log('action:', action);
+    page = pageElement.data('data');
+    indexName = '/sfw/' + pagePutInfo.slug;
+    return publishToIndexedDB(page, indexName, action);
+    /*
+    */
+
+  };
+
+  pageHandler.put = function(pageElement, action) {
+    var checkedSite, forkFrom, pagePutInfo;
+    console.log(action);
+    checkedSite = function() {
+      var site;
+      switch (site = pageElement.data('site')) {
+        case 'origin':
+        case 'local':
+        case 'view':
+          return null;
+        case location.host:
+          return null;
+        default:
+          return site;
+      }
+    };
+    pagePutInfo = {
+      slug: pageElement.attr('id').split('_rev')[0],
+      rev: pageElement.attr('id').split('_rev')[1],
+      site: checkedSite(),
+      local: pageElement.hasClass('local')
+    };
+    forkFrom = pagePutInfo.site;
+    wiki.log('pageHandler.put', action, pagePutInfo);
+    if (wiki.useLocalStorage()) {
+      if (pagePutInfo.site != null) {
+        wiki.log('remote => local');
+      } else if (!pagePutInfo.local) {
+        wiki.log('origin => local');
+        action.site = forkFrom = location.host;
+      }
+    }
+    action.date = (new Date()).getTime();
+    if (action.site === 'origin') {
+      delete action.site;
+    }
+    if (forkFrom) {
+      pageElement.find('h1 img').attr('src', '/favicon.png');
+      pageElement.find('h1 a').attr('href', '/');
+      pageElement.data('site', null);
+      pageElement.removeClass('remote');
+      state.setUrl();
+      if (action.type !== 'fork') {
+        action.fork = forkFrom;
+        addToJournal(pageElement.find('.journal'), {
+          type: 'fork',
+          site: forkFrom,
+          date: action.date
+        });
+      }
+    }
+    if (wiki.useLocalStorage() || pagePutInfo.site === 'local') {
+      pushToLocal(pageElement, pagePutInfo, action);
+      return pageElement.addClass("local");
+    } else {
+      return pushToServer(pageElement, pagePutInfo, action);
+    }
+  };
+
+}).call(this);
+
+},{"./util.coffee":5,"./state.coffee":8,"./revision.coffee":11,"./addToJournal.coffee":12}],10:[function(require,module,exports){(function() {
   var addToJournal, buildPageHeader, createFactory, emitHeader, emitTwins, handleDragging, initAddButton, initDragging, neighborhood, pageHandler, plugin, refresh, renderPageIntoPageElement, state, util, wiki,
     __slice = [].slice;
 
@@ -1377,7 +1405,7 @@
     twinNdn = new NDN({
       host: server
     });
-    name = new Name('/sfw/' + slug + '.json');
+    name = new Name('/sfw/' + slug);
     interest = new Interest(name);
     i = 0;
     template = {};
@@ -1386,9 +1414,10 @@
       var bin, flags, legend, twinClosure, twins;
       if (json !== void 0) {
         page = JSON.parse(json);
+        console.log(page.title);
         page.version = version;
         bin = version > viewing ? bins.newer : version < viewing ? bins.older : bins.same;
-        bin.push(page.title);
+        bin.push(page);
         exclusions.push(DataUtils.toNumbersFromString(page.version));
         console.log('exclusions ', exclusions);
         template.exclude = new Exclude(exclusions);
@@ -1397,10 +1426,6 @@
         twinClosure = new ContentClosure(twinNdn, name, interest, twinCallback);
         console.log('bins  ', bins);
         twins = [];
-        if (i < 5) {
-          twinNdn.expressInterest(name, twinClosure, template);
-          i++;
-        }
         for (legend in bins) {
           bin = bins[legend];
           if (!bin.length) {
@@ -1417,7 +1442,7 @@
               if (i >= 8) {
                 break;
               }
-              _results.push("<img class=\"remote\"\nsrc=\"/favicon.png\"\ndata-slug=\"" + slug + "\"\ntitle=\"" + page.title + "\">");
+              _results.push("<img class=\"remote\"\nsrc=\"/favicon.png\"\ndata-slug=\"" + slug + "\"\ntitle=\"" + page.title + "\"\ndata-ccnName=\"/sfw/" + page.title + "/" + page.version + "\">");
             }
             return _results;
           })();
@@ -1426,10 +1451,12 @@
         if (twins) {
           $page.find('.twins').html("<p>" + (twins.join(", ")) + "</p>");
         }
-        return console.log('twins', twins);
+        console.log('twins', twins);
+        twinNdn.expressInterest(name, twinClosure, template);
+        return console.log('page.title', page.title);
       } else {
         i++;
-        return console.log('json == null');
+        return console.log('json == null for twins');
       }
     };
     twinClosure = new ContentClosure(twinNdn, name, interest, twinCallback);
@@ -1492,6 +1519,7 @@
       action = _ref2[_j];
       addToJournal($journal, action);
     }
+    emitTwins($page);
     $journal.append("<div class=\"control-buttons\">\n  <a href=\"#\" class=\"button fork-page\" title=\"fork this page\">" + util.symbols['fork'] + "</a>\n  <a href=\"#\" class=\"button add-factory\" title=\"add paragraph\">" + util.symbols['add'] + "</a>\n</div>");
     return $footer.append("<a id=\"license\" href=\"http://creativecommons.org/licenses/by-sa/3.0/\">CC BY-SA 3.0</a> .\n<a class=\"show-page-source\" href=\"/" + slug + ".json?random=" + (util.randomBytes(4)) + "\" title=\"source\">JSON</a> .\n<a>" + (siteFound || 'origin') + "</a>");
   };
@@ -1516,7 +1544,7 @@
   };
 
   module.exports = refresh = wiki.refresh = function() {
-    var $page, createGhostPage, getndn, pageInformation, pubndn, registerNeighbors, rev, server, slug, whenGotten, _ref;
+    var $page, NeighborNetDB, createGhostPage, getndn, pageInformation, pubndn, registerNeighbors, rev, server, slug, whenGotten, _ref;
     server = location.host.split(':')[0];
     getndn = new NDN({
       host: server
@@ -1525,11 +1553,23 @@
       host: server
     });
     $page = $(this);
-    /* Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests 
-    pagePrefix = new Name ('/sfw/')
-    pageClosure = new PublishClosure()
-    
-    pubndn.registerPrefix(pagePrefix, pageClosure)
+    /* Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests
+    */
+
+    NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor(function(cursor) {
+        var prefix, pubClosure, si;
+        console.log('refresh cursor content', cursor.value.name);
+        prefix = new Name(cursor.value.name);
+        si = new SignedInfo();
+        si.freshnessSeconds = 5;
+        pubClosure = new AsyncPutClosure(pubndn, new Name(cursor.value.fullName), JSON.stringify(cursor.value.page), si);
+        pubndn.registerPrefix(new Name(cursor.value.name), pubClosure);
+        console.log('published on pubndn');
+        return cursor["continue"]();
+      });
+    });
+    /*
     */
 
     _ref = $page.attr('id').split('_rev'), slug = _ref[0], rev = _ref[1];
