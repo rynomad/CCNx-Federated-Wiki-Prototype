@@ -69,14 +69,20 @@ window.plugins =
       for text in item.text.split /\n\n+/
         div.append "<p>#{wiki.resolveLinks(text)}</p>" if text.match /\S/
     bind: (div, item) ->
-      div.dblclick -> wiki.textEditor div, item, null, true
+      div.dblclick ->
+        alert '???'
+        wiki.textEditor div, item, null, true
   image:
     emit: (div, item) ->
       item.text ||= item.caption
       div.append "<img class=thumbnail src=\"#{item.url}\"> <p>#{wiki.resolveLinks(item.text)}</p>"
     bind: (div, item) ->
-      div.dblclick -> wiki.textEditor div, item
-      div.find('img').dblclick -> wiki.dialog item.text, this
+      div.dblclick ->
+        alert '???'
+        wiki.textEditor div, item
+      div.find('img').dblclick ->
+        alert '???'
+        wiki.dialog item.text, this
   future:
     emit: (div, item) ->
       div.append """#{item.text}<br><br><button class="create">create</button> new blank page"""
@@ -85,3 +91,4 @@ window.plugins =
           if item.slug.match /-template$/
             div.append """<br><button class="create" data-slug=#{item.slug}>create</button> from #{wiki.resolveLinks "[[#{item.title}]]"}"""
     bind: (div, item) ->
+    
