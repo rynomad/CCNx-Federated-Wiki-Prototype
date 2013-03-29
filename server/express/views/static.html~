@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html manifest="/neighborNet.manifest" type="text/cache-manifest">
+<html manifest="/neighborNet.manifest">
   <head>
     <title>Smallest Federated Wiki</title>
     <meta content='text/html; charset=UTF-8' http-equiv='Content-Type'>

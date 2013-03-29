@@ -633,61 +633,6 @@
 
 }).call(this);
 
-},{}],9:[function(require,module,exports){(function() {
-  var active, findScrollContainer, scrollTo;
-
-  module.exports = active = {};
-
-  active.scrollContainer = void 0;
-
-  findScrollContainer = function() {
-    var scrolled;
-    scrolled = $("body, html").filter(function() {
-      return $(this).scrollLeft() > 0;
-    });
-    if (scrolled.length > 0) {
-      return scrolled;
-    } else {
-      return $("body, html").scrollLeft(12).filter(function() {
-        return $(this).scrollLeft() > 0;
-      }).scrollTop(0);
-    }
-  };
-
-  scrollTo = function(el) {
-    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
-    if ((_ref = active.scrollContainer) == null) {
-      active.scrollContainer = findScrollContainer();
-    }
-    bodyWidth = $("body").width();
-    minX = active.scrollContainer.scrollLeft();
-    maxX = minX + bodyWidth;
-    target = el.position().left;
-    width = el.outerWidth(true);
-    contentWidth = $(".page").outerWidth(true) * $(".page").size();
-    if (target < minX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target
-      });
-    } else if (target + width > maxX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target - (bodyWidth - width)
-      });
-    } else if (maxX > $(".pages").outerWidth()) {
-      return active.scrollContainer.animate({
-        scrollLeft: Math.min(target, contentWidth - bodyWidth)
-      });
-    }
-  };
-
-  active.set = function(el) {
-    el = $(el);
-    $(".active").removeClass("active");
-    return scrollTo(el.addClass("active"));
-  };
-
-}).call(this);
-
 },{}],6:[function(require,module,exports){(function() {
   var addToJournal, pageFromLocalStorage, pageHandler, publishToIndexedDB, pushToLocal, pushToServer, recursiveGet, revision, state, util;
 
@@ -758,8 +703,11 @@
           if (content != null) {
             page = content.page;
             return whenGotten(page, site);
-          } else {
+          } else if (navigator.onLine === true) {
             return ndn.expressInterest(name, getClosure, template);
+          } else {
+            whenNotGotten();
+            return console.log('_____________ # ndn ELSE', ndn);
           }
         });
       });
@@ -1011,11 +959,23 @@
     if (scripts[url] != null) {
       return callback();
     } else {
-      return $.getScript(url).done(function() {
-        scripts[url] = true;
-        return callback();
-      }).fail(function() {
-        return callback();
+      /*
+      $.getScript(url)
+        .done ->
+          scripts[url] = true
+          callback()
+        .fail ->
+          callback()
+      */
+
+      return $.ajax({
+        cache: true,
+        dataType: "script",
+        url: url,
+        success: function() {
+          scripts[url] = true;
+          return callback();
+        }
       });
     }
   };
@@ -1669,7 +1629,62 @@
 
 }).call(this);
 
-},{"./active.coffee":9}],11:[function(require,module,exports){(function() {
+},{"./active.coffee":9}],9:[function(require,module,exports){(function() {
+  var active, findScrollContainer, scrollTo;
+
+  module.exports = active = {};
+
+  active.scrollContainer = void 0;
+
+  findScrollContainer = function() {
+    var scrolled;
+    scrolled = $("body, html").filter(function() {
+      return $(this).scrollLeft() > 0;
+    });
+    if (scrolled.length > 0) {
+      return scrolled;
+    } else {
+      return $("body, html").scrollLeft(12).filter(function() {
+        return $(this).scrollLeft() > 0;
+      }).scrollTop(0);
+    }
+  };
+
+  scrollTo = function(el) {
+    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
+    if ((_ref = active.scrollContainer) == null) {
+      active.scrollContainer = findScrollContainer();
+    }
+    bodyWidth = $("body").width();
+    minX = active.scrollContainer.scrollLeft();
+    maxX = minX + bodyWidth;
+    target = el.position().left;
+    width = el.outerWidth(true);
+    contentWidth = $(".page").outerWidth(true) * $(".page").size();
+    if (target < minX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target
+      });
+    } else if (target + width > maxX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target - (bodyWidth - width)
+      });
+    } else if (maxX > $(".pages").outerWidth()) {
+      return active.scrollContainer.animate({
+        scrollLeft: Math.min(target, contentWidth - bodyWidth)
+      });
+    }
+  };
+
+  active.set = function(el) {
+    el = $(el);
+    $(".active").removeClass("active");
+    return scrollTo(el.addClass("active"));
+  };
+
+}).call(this);
+
+},{}],11:[function(require,module,exports){(function() {
   var create;
 
   create = function(revIndex, data) {
@@ -1736,7 +1751,36 @@
 
 }).call(this);
 
-},{}],13:[function(require,module,exports){(function() {
+},{}],12:[function(require,module,exports){(function() {
+  var util;
+
+  util = require('./util.coffee');
+
+  module.exports = function(journalElement, action) {
+    var actionElement, actionTitle, controls, pageElement, prev;
+    pageElement = journalElement.parents('.page:first');
+    if (action.type === 'edit') {
+      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
+    }
+    actionTitle = action.type;
+    if (action.date != null) {
+      actionTitle += " " + (util.formatElapsedTime(action.date));
+    }
+    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
+    controls = journalElement.children('.control-buttons');
+    if (controls.length > 0) {
+      actionElement.insertBefore(controls);
+    } else {
+      actionElement.appendTo(journalElement);
+    }
+    if (action.type === 'fork' && (action.site != null)) {
+      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
+    }
+  };
+
+}).call(this);
+
+},{"./util.coffee":5}],13:[function(require,module,exports){(function() {
   var active, createSearch, neighborhood, nextAvailableFetch, nextFetchInterval, populateSiteInfoFor, util, _ref,
     __hasProp = {}.hasOwnProperty;
 
@@ -1884,36 +1928,7 @@
 
 }).call(this);
 
-},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],12:[function(require,module,exports){(function() {
-  var util;
-
-  util = require('./util.coffee');
-
-  module.exports = function(journalElement, action) {
-    var actionElement, actionTitle, controls, pageElement, prev;
-    pageElement = journalElement.parents('.page:first');
-    if (action.type === 'edit') {
-      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
-    }
-    actionTitle = action.type;
-    if (action.date != null) {
-      actionTitle += " " + (util.formatElapsedTime(action.date));
-    }
-    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
-    controls = journalElement.children('.control-buttons');
-    if (controls.length > 0) {
-      actionElement.insertBefore(controls);
-    } else {
-      actionElement.appendTo(journalElement);
-    }
-    if (action.type === 'fork' && (action.site != null)) {
-      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5}],14:[function(require,module,exports){(function() {
+},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],14:[function(require,module,exports){(function() {
   var active, createSearch, util;
 
   util = require('./util.coffee');

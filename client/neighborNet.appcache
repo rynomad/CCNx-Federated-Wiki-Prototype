@@ -1,0 +1,21 @@
+CACHE MANIFEST
+
+CACHE:
+/favicon.png
+/style.css
+/js/jquery-1.7.1.min.js
+/js/jquery-ui-1.10.1.custom.min.js
+/js/jquery-ui-1.10.1.custom.min.css
+/js/underscore-min.js
+/js/SDB.js
+/js/ndn/ndn-js.js
+/js/ndn/ndn-closures.js
+/js/ndn/ndn-utils.js
+/client.js
+/cacheManifest.js
+/plugins/factory/factory.js
+
+NETWORK:
+*
+
+# version 1
