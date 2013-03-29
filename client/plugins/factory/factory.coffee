@@ -46,7 +46,6 @@ window.plugins.factory =
       wiki.pageHandler.put pageElement, {type: 'edit', id: item.id, item: item}
 
     div.dblclick ->
-      alert '???'
       div.removeClass('factory').addClass(item.type='paragraph')
       div.unbind()
       wiki.textEditor div, item
