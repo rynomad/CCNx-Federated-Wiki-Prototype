@@ -57,8 +57,11 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
         if content?
           page = content.page
           whenGotten(page, site)
-        else
+        else if navigator.onLine == true
           ndn.expressInterest(name, getClosure, template)
+        else
+          whenNotGotten()
+          console.log '_____________ # ndn ELSE', ndn
       )
     )
   
