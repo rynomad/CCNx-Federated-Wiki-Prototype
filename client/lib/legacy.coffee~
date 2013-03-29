@@ -301,5 +301,5 @@ $ ->
 
   $('body').on 'new-neighbor-done', (e, neighbor) ->
     $('.page').each (index, element) ->
-      wiki.emitTwins $(element)
+#      wiki.emitTwins $(element)
 

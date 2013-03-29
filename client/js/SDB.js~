@@ -262,14 +262,6 @@ var NeighborNetDBschema = {
 				]
 			},
 			{
-				name: 'pageTwinContentObjects',
-				opts: {keyPath: 'id', autoIncrement: true},
-				indices: [
-					{index: 'name', opts: {unique: false}},
-					{index: 'fullName', opts: {unique: true}}
-				]
-			},
-			{
 				name: 'LocalID',
 				opts: {keyPath: 'id', autoIncrement: true},
 				indices: [

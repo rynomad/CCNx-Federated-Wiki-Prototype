@@ -6,7 +6,7 @@ wiki.log = (things...) ->
   console.log things... if console?.log?
 
 wiki.asSlug = (name) ->
-  name.replace(/\s/g, '-').replace(/[^A-Za-z0-9-/]/g, '').toLowerCase()
+  name.replace(/\s/g, '-').replace(/[^A-Za-z0-9-]/g, '').toLowerCase()
 
 
 wiki.useLocalStorage = ->

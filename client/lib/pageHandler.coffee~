@@ -40,7 +40,7 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
       NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readonly').store('pageTwinContentObjects').index('fullName').get(slug, (content)  ->
         console.log content
         if content?
-          whenGotten(content.page, site)        
+          whenGotten(content, site)        
       )
     )
   else

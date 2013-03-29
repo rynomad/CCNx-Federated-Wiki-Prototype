@@ -145,7 +145,7 @@ emitTwins = wiki.emitTwins = ($page) ->
       signedInfo = new SignedInfo()
       indexName = '/sfw/' + slug
       console.log
-      pageItem = {name: indexName , fullName: fullName, signedInfo: signedInfo, page: page}
+      pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
       
       NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
         NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').put(pageItem)
