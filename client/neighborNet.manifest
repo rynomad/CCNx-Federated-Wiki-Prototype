@@ -13,7 +13,6 @@ CACHE:
 /js/ndn/ndn-utils.js
 /client.js
 /plugins/factory/factory.js
-
 /cacheManifest.js
 /neighborNet.manifest
 

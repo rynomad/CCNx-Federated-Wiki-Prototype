@@ -75,6 +75,16 @@
         div.unbind();
         return wiki.textEditor(div, item);
       });
+      
+      /**
+       * jQueryMobile for touchEdit
+       */
+      div.on('taphold', function(){
+        div.removeClass('factory').addClass(item.type = 'paragraph');
+        div.unbind();
+        return wiki.textEditor(div, item);
+      });
+      
       div.bind('dragenter', function(evt) {
         return evt.preventDefault();
       });

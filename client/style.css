@@ -40,9 +40,14 @@ footer {
   font-size: 80%;
   z-index: 1000;
   color: #ccdcd2; }
- 
-footer form {
-  display: inline;
+
+footer div span{
+	width: auto;
+	float: left;
+}
+
+footer div span[class="neighborhood"]{
+	float: right !important;
 }
 
 .neighbor {
