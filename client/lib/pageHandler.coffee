@@ -161,21 +161,36 @@ publishToIndexedDB = ( page, indexName, action) ->
 
   ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB ###
   
-  console.log NDN.CSTable
+  console.log 'indexNNNNNNNNNNNNNNNNNNNNNNNNNNNName',indexName
  
   pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
   console.log pageItem
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
+    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+  )
+  for item in NDN.CSTable
+    console.log NDN.CSTable
+    console.log pageItem.name, item.name
+    if pageItem.name == item.name
+      item.closure.content = JSON.stringify(pageItem.page)
+      item.closure.name = new Name(pageItem.fullName)
+      console.log 'closure content replaced'
+      contentPublished = true
+      break
+  if contentPublished != true
+    ndn.registerPrefix(prefix, putClosure)
+  ###
+  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
     console.log 'testings'
-    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').index('name').get(pageItem.name, (content)  ->
+    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').cursor((cursor)  ->
       console.log content
       if content?
         NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id)
         NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
         console.log 'indexedDB item replaced'
-        i = 0
+        
         for item in NDN.CSTable
-          console.log NDN.CSTable, i
+          console.log NDN.CSTable
           console.log pageItem.page.title, item.closure.content
           if pageItem.page.title == JSON.parse(item.closure.content).title
             item.closure.content = JSON.stringify(pageItem.page)
@@ -188,7 +203,7 @@ publishToIndexedDB = ( page, indexName, action) ->
       
     )
   )
-  
+  ###
 pushToServer = (pageElement, pagePutInfo, action) ->
   console.log('pageElement:',pageElement.attr('id'))
   console.log('pagePutInfo:', pagePutInfo)

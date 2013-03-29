@@ -6,6 +6,9 @@ neighborhood = require('./neighborhood.coffee')
 addToJournal = require('./addToJournal.coffee')
 wiki = require('./wiki.coffee')
 
+server = location.host.split(':')[0]
+twinNdn = new NDN({host: server})
+
 handleDragging = (evt, ui) ->
   itemElement = ui.item
 
@@ -107,19 +110,29 @@ emitHeader = ($header, $page, page) ->
       </h2>
     """
 
-emitTwins = wiki.emitTwins = ($page) ->
+emitTwins = wiki.emitTwins = ($page, twinNdn) ->
   page = $page.data 'data'
   site = $page.data('site') or window.location.host
   site = window.location.host if site in ['view', 'origin']
   slug = wiki.asSlug page.title
   server = location.host.split(':')[0]
-
-  twinNdn = new NDN({host: server})
-  name = new Name('/sfw/' + slug)
+  indexName = '/sfw/' + slug
+  
+  
+  name = new Name(indexName)
   interest = new Interest(name)
   i = 0
   template = {}
   exclusions = []
+  
+  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
+    NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').cursor((cursor) ->
+      if(cursor.value.name == indexName)
+        NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').del(cursor.value.id)
+      cursor.continue
+    )
+  )
+  
 
   twinCallback = (json, version) ->
     if json != undefined
@@ -129,7 +142,8 @@ emitTwins = wiki.emitTwins = ($page) ->
       bin = if version > viewing then bins.newer
       else if version < viewing then bins.older
       else bins.same
-      bin.push page
+      if bin != bins.same
+        bin.push page
       exclusions.push DataUtils.toNumbersFromString(page.version)
       console.log('exclusions ',exclusions)
 
@@ -180,7 +194,6 @@ emitTwins = wiki.emitTwins = ($page) ->
   
 
   if (viewing = Number(page.version))?
-    viewing = Math.floor(viewing/1000)*1000
     bins = {newer:[], same:[], older:[]}
     twinNdn.expressInterest(name, twinClosure, template)
 
@@ -219,7 +232,7 @@ renderPageIntoPageElement = (pageData,$page, siteFound) ->
   for action in page.journal
     addToJournal $journal, action
 
-  emitTwins $page
+  emitTwins $page, twinNdn
 
   $journal.append """
     <div class="control-buttons">

@@ -1,9 +1,6 @@
 
 
 
-
-
-
 window.sdb = (window.sdb || (function(){
 	
 	function SDB(schema, successCallback){
@@ -81,6 +78,7 @@ window.sdb = (window.sdb || (function(){
 		var transaction, objectStore;
 		
 		function createTransaction(db, store, transactionType){
+			// IDBTransaction[transactionType] is deprecated
 			transaction = db.transaction(store, transactionType);
 			return this;
 		};
@@ -128,7 +126,6 @@ window.sdb = (window.sdb || (function(){
 				.onsuccess = function(e){
 					item = e.target.source;
 					callback && callback(item);
-					console.log('this',item,req);
 					return req;
 				}).onerror = function(e){
 					console.log('GET ERROR!', e);
@@ -143,17 +140,54 @@ window.sdb = (window.sdb || (function(){
 			return this;
 		};
 		
-		function openCursor(callback){
-			var cursor, items = [], req = objectStore.openCursor();
+		function openCursor(callback, directives){
+			var cursor, keyRange, direction, items = [], req;
+			
+			(!directives) && (function(){
+				req = objectStore.openCursor();
+			}())
+			||
+			(directives) && (function(){
+				(directives.constructor === Object) && (function(){
+					keyRange = (directives.bound && IDBKeyRange.bound(
+							directives.bound[0], directives.bound[1],
+							(directives.bound[2] && directives.bound[2]),
+							(directives.bound[3] && directives.bound[3])
+						));
+				
+					direction = ((directives.direction) && directives.direction);
+					((direction) && (req = objectStore.openCursor(keyRange, direction)))
+					||
+					(req = objectStore.openCursor(keyRange));
+					//req = objectStore.openCursor(IDBKeyRange.bound(1, 3, false, false));
+				}())
+				||
+				(directives.constructor === Number) && (function(){
+					keyRange = (directives && directives);
+					req = objectStore.openCursor(keyRange);
+				}());
+			}());
+			
 			req.onsuccess = function(e){
 				cursor = e.target.result;
-				(cursor) && ((function(){
-				        console.log('thatcursor!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+				if(cursor){
 					items.push(cursor.value);
-					console.log(items, cursor);
-					callback(cursor);
-				})());
+					callback(cursor.value, cursor);
+					//cursor.continue();  // passing cursor to callback for in-process cursor-control.
+				}
 			};
+			
+			/*  req = objectStore.openCursor();
+			req.onsuccess = function(e){
+				cursor = e.target.result;
+				(cursor) && (function(){
+					items.push(cursor.value);
+					callback(cursor.value);
+					cursor.continue();
+				}());
+			};
+			*/
+			
 			return this;
 		};
 		
@@ -179,8 +213,6 @@ window.sdb = (window.sdb || (function(){
 					var result = e.target.result;
 					callback(result);
 				};
-				
-				console.log('this',this);
 				return this;
 			};
 			
@@ -188,11 +220,11 @@ window.sdb = (window.sdb || (function(){
 				var cursor, items = [], req = storeIndex.openCursor();
 				req.onsuccess = function(e){
 					cursor = e.target.result;
-					(cursor) && ((function(){
-						items.push('thiscursor!!!!!!!!!!!!!!!!!!!!!!!!!!');
+					(cursor) && (function(){
+						items.push(cursor.value);
 						callback(cursor.value);
 						cursor.continue();
-					})());
+					}());
 				};
 				return this;
 			};
@@ -201,11 +233,11 @@ window.sdb = (window.sdb || (function(){
 				var cursor, items = [], req = storeIndex.openCursor();
 				req.onsuccess = function(e){
 					cursor = e.target.result;
-					(cursor) && ((function(){
+					(cursor) && (function(){
 						items.push(cursor.value);
 						callback(cursor.value);
 						cursor.continue();
-					})());
+					}());
 				};
 				return this;
 			};
@@ -248,6 +280,7 @@ window.sdb = (window.sdb || (function(){
 	
 }()));
 
+
 var NeighborNetDBschema = {
 	db: 'NeighborNetDB',
 	v: 1,
@@ -255,9 +288,9 @@ var NeighborNetDBschema = {
 		stores: [
 			{
 				name: 'pageContentObjects',
-				opts: {keyPath: 'id', autoIncrement: true},
+				opts: {keyPath: 'name', autoIncrement: false},
 				indices: [
-					{index: 'name', opts: {unique: false}},
+					{index: 'name', opts: {unique: true}},
 					{index: 'fullName', opts: {unique: true}}
 				]
 			},

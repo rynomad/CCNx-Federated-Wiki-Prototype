@@ -633,317 +633,62 @@
 
 }).call(this);
 
-},{}],6:[function(require,module,exports){(function() {
-  var addToJournal, pageFromLocalStorage, pageHandler, publishToIndexedDB, pushToLocal, pushToServer, recursiveGet, revision, state, util;
+},{}],9:[function(require,module,exports){(function() {
+  var active, findScrollContainer, scrollTo;
 
-  util = require('./util.coffee');
+  module.exports = active = {};
 
-  state = require('./state.coffee');
+  active.scrollContainer = void 0;
 
-  revision = require('./revision.coffee');
-
-  addToJournal = require('./addToJournal.coffee');
-
-  module.exports = pageHandler = {};
-
-  pageFromLocalStorage = function(slug) {
-    var json;
-    if (json = localStorage[slug]) {
-      return JSON.parse(json);
-    } else {
-      return void 0;
-    }
-  };
-
-  recursiveGet = function(_arg) {
-    var NeighborNetDB, getCallback, getClosure, interest, localContext, name, ndn, pageInformation, rev, site, slug, template, whenGotten, whenNotGotten;
-    pageInformation = _arg.pageInformation, whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, localContext = _arg.localContext, ndn = _arg.ndn;
-    slug = pageInformation.slug, rev = pageInformation.rev, site = pageInformation.site;
-    console.log(pageInformation);
-    console.log(ndn);
-    getCallback = function(json, version) {
-      var action, indexName, page;
-      if (json !== void 0) {
-        console.log('calling', json);
-        page = JSON.parse(json);
-        page.version = version;
-        whenGotten(page, site);
-        slug = wiki.asSlug(page.title);
-        indexName = '/sfw/' + slug;
-        action = {
-          type: 'fork'
-        };
-        return publishToIndexedDB(page, indexName, action);
-      } else {
-        console.log('json == null');
-        return whenNotGotten();
-      }
-    };
-    name = new Name(slug);
-    if (name.components.length > 1) {
-      console.log('console long name', name);
-      return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-        console.log('testings');
-        return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readonly').store('pageTwinContentObjects').index('fullName').get(slug, function(content) {
-          console.log(content);
-          if (content != null) {
-            return whenGotten(content.page, site);
-          }
-        });
-      });
-    } else {
-      name = new Name("/sfw/" + slug);
-      interest = new Interest(name);
-      template = {};
-      getClosure = new ContentClosure(ndn, name, interest, getCallback);
-      return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-        return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get('/sfw/' + slug, function(content) {
-          var page;
-          console.log(content);
-          if (content != null) {
-            page = content.page;
-            return whenGotten(page, site);
-          } else if (navigator.onLine === true) {
-            return ndn.expressInterest(name, getClosure, template);
-          } else {
-            whenNotGotten();
-            return console.log('_____________ # ndn ELSE', ndn);
-          }
-        });
-      });
-    }
-  };
-
-  pageHandler.get = function(_arg) {
-    var localPage, ndn, pageInformation, whenGotten, whenNotGotten;
-    whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, pageInformation = _arg.pageInformation, ndn = _arg.ndn;
-    if (!pageInformation.site) {
-      if (localPage = pageFromLocalStorage(pageInformation.slug)) {
-        if (pageInformation.rev) {
-          localPage = revision.create(pageInformation.rev, localPage);
-        }
-        return whenGotten(localPage, 'local');
-      }
-    }
-    if (!pageHandler.context.length) {
-      pageHandler.context = ['view'];
-    }
-    return recursiveGet({
-      pageInformation: pageInformation,
-      whenGotten: whenGotten,
-      whenNotGotten: whenNotGotten,
-      localContext: _.clone(pageHandler.context),
-      ndn: ndn
+  findScrollContainer = function() {
+    var scrolled;
+    scrolled = $("body, html").filter(function() {
+      return $(this).scrollLeft() > 0;
     });
-  };
-
-  pageHandler.context = [];
-
-  pushToLocal = function(pageElement, pagePutInfo, action) {
-    var page, site;
-    page = pageFromLocalStorage(pagePutInfo.slug);
-    if (action.type === 'create') {
-      page = {
-        title: action.item.title
-      };
-    }
-    page || (page = pageElement.data("data"));
-    if (page.journal == null) {
-      page.journal = [];
-    }
-    if ((site = action['fork']) != null) {
-      page.journal = page.journal.concat({
-        'type': 'fork',
-        'site': site
-      });
-      delete action['fork'];
-    }
-    page.journal = page.journal.concat(action);
-    page.story = $(pageElement).find(".item").map(function() {
-      return $(this).data("item");
-    }).get();
-    localStorage[pagePutInfo.slug] = JSON.stringify(page);
-    return addToJournal(pageElement.find('.journal'), action);
-  };
-
-  publishToIndexedDB = function(page, indexName, action) {
-    var NeighborNetDB, ccnName, fullname, i, idx, name, ndn, pageItem, prefix, publishClosure, putClosure, server, signedInfo, timestamp;
-    server = location.host.split(':');
-    server = server[0];
-    ndn = new NDN({
-      host: server
-    });
-    signedInfo = new SignedInfo();
-    signedInfo.freshnessSeconds = 5;
-    timestamp = signedInfo.timestamp.msec;
-    console.log(signedInfo.timestamp.msec);
-    prefix = new Name(indexName);
-    fullname = indexName + '/' + timestamp;
-    name = new Name(fullname);
-    ccnName = new Name(fullname);
-    console.log('name: ', name);
-    console.log(prefix);
-    page.version = timestamp;
-    page.story = (function() {
-      switch (action.type) {
-        case 'move':
-          return action.order.map(function(id) {
-            return page.story.filter(function(para) {
-              return id === para.id;
-            })[0] || (function() {
-              throw 'Ignoring move. Try reload.';
-            })();
-          });
-        case 'add':
-          idx = page.story.map(function(para) {
-            return para.id;
-          }).indexOf(action.after) + 1;
-          page.story.splice(idx, 0, action.item);
-          return page.story;
-        case 'remove':
-          return page.story.filter(function(para) {
-            return (para != null ? para.id : void 0) !== action.id;
-          });
-        case 'edit':
-          return page.story.map(function(para) {
-            if (para.id === action.id) {
-              return action.item;
-            } else {
-              return para;
-            }
-          });
-        case 'create':
-        case 'fork':
-          return page.story || [];
-        default:
-          log("Unfamiliar action:", action);
-          return page.story;
-      }
-    })();
-    putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo);
-    publishClosure = new PublishClosure(ndn);
-    i = 0;
-    console.log(page);
-    /* Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB
-    */
-
-    console.log(NDN.CSTable);
-    pageItem = {
-      name: indexName,
-      fullName: fullname,
-      signedInfo: signedInfo,
-      page: page
-    };
-    console.log(pageItem);
-    return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-      console.log('testings');
-      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').index('name').get(pageItem.name, function(content) {
-        var item, _i, _len, _ref, _results;
-        console.log(content);
-        if (content != null) {
-          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id);
-          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
-          console.log('indexedDB item replaced');
-          i = 0;
-          _ref = NDN.CSTable;
-          _results = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            item = _ref[_i];
-            console.log(NDN.CSTable, i);
-            console.log(pageItem.page.title, item.closure.content);
-            if (pageItem.page.title === JSON.parse(item.closure.content).title) {
-              item.closure.content = JSON.stringify(pageItem.page);
-              item.closure.name = new Name(pageItem.fullName);
-              _results.push(console.log('closure content replaced'));
-            } else {
-              _results.push(void 0);
-            }
-          }
-          return _results;
-        } else {
-          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
-          putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(pageItem.page), signedInfo);
-          return ndn.registerPrefix(prefix, putClosure);
-        }
-      });
-    });
-  };
-
-  pushToServer = function(pageElement, pagePutInfo, action) {
-    var indexName, page;
-    console.log('pageElement:', pageElement.attr('id'));
-    console.log('pagePutInfo:', pagePutInfo);
-    console.log('action:', action);
-    page = pageElement.data('data');
-    indexName = '/sfw/' + pagePutInfo.slug;
-    return publishToIndexedDB(page, indexName, action);
-    /*
-    */
-
-  };
-
-  pageHandler.put = function(pageElement, action) {
-    var checkedSite, forkFrom, pagePutInfo;
-    console.log(action);
-    checkedSite = function() {
-      var site;
-      switch (site = pageElement.data('site')) {
-        case 'origin':
-        case 'local':
-        case 'view':
-          return null;
-        case location.host:
-          return null;
-        default:
-          return site;
-      }
-    };
-    pagePutInfo = {
-      slug: pageElement.attr('id').split('_rev')[0],
-      rev: pageElement.attr('id').split('_rev')[1],
-      site: checkedSite(),
-      local: pageElement.hasClass('local')
-    };
-    forkFrom = pagePutInfo.site;
-    wiki.log('pageHandler.put', action, pagePutInfo);
-    if (wiki.useLocalStorage()) {
-      if (pagePutInfo.site != null) {
-        wiki.log('remote => local');
-      } else if (!pagePutInfo.local) {
-        wiki.log('origin => local');
-        action.site = forkFrom = location.host;
-      }
-    }
-    action.date = (new Date()).getTime();
-    if (action.site === 'origin') {
-      delete action.site;
-    }
-    if (forkFrom) {
-      pageElement.find('h1 img').attr('src', '/favicon.png');
-      pageElement.find('h1 a').attr('href', '/');
-      pageElement.data('site', null);
-      pageElement.removeClass('remote');
-      state.setUrl();
-      if (action.type !== 'fork') {
-        action.fork = forkFrom;
-        addToJournal(pageElement.find('.journal'), {
-          type: 'fork',
-          site: forkFrom,
-          date: action.date
-        });
-      }
-    }
-    if (wiki.useLocalStorage() || pagePutInfo.site === 'local') {
-      pushToLocal(pageElement, pagePutInfo, action);
-      return pageElement.addClass("local");
+    if (scrolled.length > 0) {
+      return scrolled;
     } else {
-      return pushToServer(pageElement, pagePutInfo, action);
+      return $("body, html").scrollLeft(12).filter(function() {
+        return $(this).scrollLeft() > 0;
+      }).scrollTop(0);
     }
+  };
+
+  scrollTo = function(el) {
+    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
+    if ((_ref = active.scrollContainer) == null) {
+      active.scrollContainer = findScrollContainer();
+    }
+    bodyWidth = $("body").width();
+    minX = active.scrollContainer.scrollLeft();
+    maxX = minX + bodyWidth;
+    target = el.position().left;
+    width = el.outerWidth(true);
+    contentWidth = $(".page").outerWidth(true) * $(".page").size();
+    if (target < minX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target
+      });
+    } else if (target + width > maxX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target - (bodyWidth - width)
+      });
+    } else if (maxX > $(".pages").outerWidth()) {
+      return active.scrollContainer.animate({
+        scrollLeft: Math.min(target, contentWidth - bodyWidth)
+      });
+    }
+  };
+
+  active.set = function(el) {
+    el = $(el);
+    $(".active").removeClass("active");
+    return scrollTo(el.addClass("active"));
   };
 
 }).call(this);
 
-},{"./util.coffee":5,"./state.coffee":8,"./revision.coffee":11,"./addToJournal.coffee":12}],7:[function(require,module,exports){(function() {
+},{}],7:[function(require,module,exports){(function() {
   var getScript, plugin, scripts, util;
 
   util = require('./util.coffee');
@@ -1094,8 +839,445 @@
 
 }).call(this);
 
-},{"./util.coffee":5}],10:[function(require,module,exports){(function() {
-  var addToJournal, buildPageHeader, createFactory, emitHeader, emitTwins, handleDragging, initAddButton, initDragging, neighborhood, pageHandler, plugin, refresh, renderPageIntoPageElement, state, util, wiki,
+},{"./util.coffee":5}],6:[function(require,module,exports){(function() {
+  var addToJournal, pageFromLocalStorage, pageHandler, publishToIndexedDB, pushToLocal, pushToServer, recursiveGet, revision, state, util;
+
+  util = require('./util.coffee');
+
+  state = require('./state.coffee');
+
+  revision = require('./revision.coffee');
+
+  addToJournal = require('./addToJournal.coffee');
+
+  module.exports = pageHandler = {};
+
+  pageFromLocalStorage = function(slug) {
+    var json;
+    if (json = localStorage[slug]) {
+      return JSON.parse(json);
+    } else {
+      return void 0;
+    }
+  };
+
+  recursiveGet = function(_arg) {
+    var NeighborNetDB, getCallback, getClosure, interest, localContext, name, ndn, pageInformation, rev, site, slug, template, whenGotten, whenNotGotten;
+    pageInformation = _arg.pageInformation, whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, localContext = _arg.localContext, ndn = _arg.ndn;
+    slug = pageInformation.slug, rev = pageInformation.rev, site = pageInformation.site;
+    console.log(pageInformation);
+    console.log(ndn);
+    getCallback = function(json, version) {
+      var action, indexName, page;
+      if (json !== void 0) {
+        console.log('calling', json);
+        page = JSON.parse(json);
+        page.version = version;
+        whenGotten(page, site);
+        slug = wiki.asSlug(page.title);
+        indexName = '/sfw/' + slug;
+        action = {
+          type: 'fork'
+        };
+        return publishToIndexedDB(page, indexName, action);
+      } else {
+        console.log('json == null');
+        return whenNotGotten();
+      }
+    };
+    name = new Name(slug);
+    if (name.components.length > 1) {
+      console.log('console long name', name);
+      return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+        console.log('testings');
+        return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readonly').store('pageTwinContentObjects').index('fullName').get(slug, function(content) {
+          console.log(content);
+          if (content != null) {
+            return whenGotten(content.page, site);
+          }
+        });
+      });
+    } else {
+      name = new Name("/sfw/" + slug);
+      interest = new Interest(name);
+      template = {};
+      getClosure = new ContentClosure(ndn, name, interest, getCallback);
+      return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+        return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').index('name').get('/sfw/' + slug, function(content) {
+          var page;
+          console.log(content);
+          if (content != null) {
+            page = content.page;
+            return whenGotten(page, site);
+          } else if (navigator.onLine === true) {
+            return ndn.expressInterest(name, getClosure, template);
+          } else {
+            whenNotGotten();
+            return console.log('_____________ # ndn ELSE', ndn);
+          }
+        });
+      });
+    }
+  };
+
+  pageHandler.get = function(_arg) {
+    var localPage, ndn, pageInformation, whenGotten, whenNotGotten;
+    whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, pageInformation = _arg.pageInformation, ndn = _arg.ndn;
+    if (!pageInformation.site) {
+      if (localPage = pageFromLocalStorage(pageInformation.slug)) {
+        if (pageInformation.rev) {
+          localPage = revision.create(pageInformation.rev, localPage);
+        }
+        return whenGotten(localPage, 'local');
+      }
+    }
+    if (!pageHandler.context.length) {
+      pageHandler.context = ['view'];
+    }
+    return recursiveGet({
+      pageInformation: pageInformation,
+      whenGotten: whenGotten,
+      whenNotGotten: whenNotGotten,
+      localContext: _.clone(pageHandler.context),
+      ndn: ndn
+    });
+  };
+
+  pageHandler.context = [];
+
+  pushToLocal = function(pageElement, pagePutInfo, action) {
+    var page, site;
+    page = pageFromLocalStorage(pagePutInfo.slug);
+    if (action.type === 'create') {
+      page = {
+        title: action.item.title
+      };
+    }
+    page || (page = pageElement.data("data"));
+    if (page.journal == null) {
+      page.journal = [];
+    }
+    if ((site = action['fork']) != null) {
+      page.journal = page.journal.concat({
+        'type': 'fork',
+        'site': site
+      });
+      delete action['fork'];
+    }
+    page.journal = page.journal.concat(action);
+    page.story = $(pageElement).find(".item").map(function() {
+      return $(this).data("item");
+    }).get();
+    localStorage[pagePutInfo.slug] = JSON.stringify(page);
+    return addToJournal(pageElement.find('.journal'), action);
+  };
+
+  publishToIndexedDB = function(page, indexName, action) {
+    var NeighborNetDB, ccnName, contentPublished, fullname, i, idx, item, name, ndn, pageItem, prefix, publishClosure, putClosure, server, signedInfo, timestamp, _i, _len, _ref;
+    server = location.host.split(':');
+    server = server[0];
+    ndn = new NDN({
+      host: server
+    });
+    signedInfo = new SignedInfo();
+    signedInfo.freshnessSeconds = 5;
+    timestamp = signedInfo.timestamp.msec;
+    console.log(signedInfo.timestamp.msec);
+    prefix = new Name(indexName);
+    fullname = indexName + '/' + timestamp;
+    name = new Name(fullname);
+    ccnName = new Name(fullname);
+    console.log('name: ', name);
+    console.log(prefix);
+    page.version = timestamp;
+    page.story = (function() {
+      switch (action.type) {
+        case 'move':
+          return action.order.map(function(id) {
+            return page.story.filter(function(para) {
+              return id === para.id;
+            })[0] || (function() {
+              throw 'Ignoring move. Try reload.';
+            })();
+          });
+        case 'add':
+          idx = page.story.map(function(para) {
+            return para.id;
+          }).indexOf(action.after) + 1;
+          page.story.splice(idx, 0, action.item);
+          return page.story;
+        case 'remove':
+          return page.story.filter(function(para) {
+            return (para != null ? para.id : void 0) !== action.id;
+          });
+        case 'edit':
+          return page.story.map(function(para) {
+            if (para.id === action.id) {
+              return action.item;
+            } else {
+              return para;
+            }
+          });
+        case 'create':
+        case 'fork':
+          return page.story || [];
+        default:
+          log("Unfamiliar action:", action);
+          return page.story;
+      }
+    })();
+    putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo);
+    publishClosure = new PublishClosure(ndn);
+    i = 0;
+    console.log(page);
+    /* Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB
+    */
+
+    console.log('indexNNNNNNNNNNNNNNNNNNNNNNNNNNNName', indexName);
+    pageItem = {
+      name: indexName,
+      fullName: fullname,
+      signedInfo: signedInfo,
+      page: page
+    };
+    console.log(pageItem);
+    NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem);
+    });
+    _ref = NDN.CSTable;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      item = _ref[_i];
+      console.log(NDN.CSTable);
+      console.log(pageItem.name, item.name);
+      if (pageItem.name === item.name) {
+        item.closure.content = JSON.stringify(pageItem.page);
+        item.closure.name = new Name(pageItem.fullName);
+        console.log('closure content replaced');
+        contentPublished = true;
+        break;
+      }
+    }
+    if (contentPublished !== true) {
+      return ndn.registerPrefix(prefix, putClosure);
+    }
+    /*
+    NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
+      console.log 'testings'
+      NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').cursor((cursor)  ->
+        console.log content
+        if content?
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id)
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+          console.log 'indexedDB item replaced'
+          
+          for item in NDN.CSTable
+            console.log NDN.CSTable
+            console.log pageItem.page.title, item.closure.content
+            if pageItem.page.title == JSON.parse(item.closure.content).title
+              item.closure.content = JSON.stringify(pageItem.page)
+              item.closure.name = new Name(pageItem.fullName)
+              console.log 'closure content replaced'
+        else
+          NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+          putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(pageItem.page), signedInfo)
+          ndn.registerPrefix(prefix, putClosure)
+        
+      )
+    )
+    */
+
+  };
+
+  pushToServer = function(pageElement, pagePutInfo, action) {
+    var indexName, page;
+    console.log('pageElement:', pageElement.attr('id'));
+    console.log('pagePutInfo:', pagePutInfo);
+    console.log('action:', action);
+    page = pageElement.data('data');
+    indexName = '/sfw/' + pagePutInfo.slug;
+    return publishToIndexedDB(page, indexName, action);
+    /*
+    */
+
+  };
+
+  pageHandler.put = function(pageElement, action) {
+    var checkedSite, forkFrom, pagePutInfo;
+    console.log(action);
+    checkedSite = function() {
+      var site;
+      switch (site = pageElement.data('site')) {
+        case 'origin':
+        case 'local':
+        case 'view':
+          return null;
+        case location.host:
+          return null;
+        default:
+          return site;
+      }
+    };
+    pagePutInfo = {
+      slug: pageElement.attr('id').split('_rev')[0],
+      rev: pageElement.attr('id').split('_rev')[1],
+      site: checkedSite(),
+      local: pageElement.hasClass('local')
+    };
+    forkFrom = pagePutInfo.site;
+    wiki.log('pageHandler.put', action, pagePutInfo);
+    if (wiki.useLocalStorage()) {
+      if (pagePutInfo.site != null) {
+        wiki.log('remote => local');
+      } else if (!pagePutInfo.local) {
+        wiki.log('origin => local');
+        action.site = forkFrom = location.host;
+      }
+    }
+    action.date = (new Date()).getTime();
+    if (action.site === 'origin') {
+      delete action.site;
+    }
+    if (forkFrom) {
+      pageElement.find('h1 img').attr('src', '/favicon.png');
+      pageElement.find('h1 a').attr('href', '/');
+      pageElement.data('site', null);
+      pageElement.removeClass('remote');
+      state.setUrl();
+      if (action.type !== 'fork') {
+        action.fork = forkFrom;
+        addToJournal(pageElement.find('.journal'), {
+          type: 'fork',
+          site: forkFrom,
+          date: action.date
+        });
+      }
+    }
+    if (wiki.useLocalStorage() || pagePutInfo.site === 'local') {
+      pushToLocal(pageElement, pagePutInfo, action);
+      return pageElement.addClass("local");
+    } else {
+      return pushToServer(pageElement, pagePutInfo, action);
+    }
+  };
+
+}).call(this);
+
+},{"./util.coffee":5,"./state.coffee":8,"./revision.coffee":11,"./addToJournal.coffee":12}],8:[function(require,module,exports){(function() {
+  var active, state,
+    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+
+  active = require('./active.coffee');
+
+  module.exports = state = {};
+
+  state.pagesInDom = function() {
+    return $.makeArray($(".page").map(function(_, el) {
+      return el.id;
+    }));
+  };
+
+  state.urlPages = function() {
+    var i;
+    return ((function() {
+      var _i, _len, _ref, _results;
+      _ref = $(location).attr('pathname').split('/');
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
+        i = _ref[_i];
+        _results.push(i);
+      }
+      return _results;
+    })()).slice(1);
+  };
+
+  state.locsInDom = function() {
+    return $.makeArray($(".page").map(function(_, el) {
+      return $(el).data('site') || 'view';
+    }));
+  };
+
+  state.urlLocs = function() {
+    var j, _i, _len, _ref, _results;
+    _ref = $(location).attr('pathname').split('/').slice(1);
+    _results = [];
+    for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
+      j = _ref[_i];
+      _results.push(j);
+    }
+    return _results;
+  };
+
+  state.setUrl = function() {
+    var idx, locs, page, pages, url, _ref;
+    document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
+    if (history && history.pushState) {
+      locs = state.locsInDom();
+      pages = state.pagesInDom();
+      url = ((function() {
+        var _i, _len, _results;
+        _results = [];
+        for (idx = _i = 0, _len = pages.length; _i < _len; idx = ++_i) {
+          page = pages[idx];
+          _results.push("/" + ((locs != null ? locs[idx] : void 0) || 'view') + "/" + page);
+        }
+        return _results;
+      })()).join('');
+      if (url !== $(location).attr('pathname')) {
+        return history.pushState(null, null, url);
+      }
+    }
+  };
+
+  state.show = function(e) {
+    var idx, name, newLocs, newPages, old, oldLocs, oldPages, previous, _i, _len, _ref;
+    oldPages = state.pagesInDom();
+    newPages = state.urlPages();
+    oldLocs = state.locsInDom();
+    newLocs = state.urlLocs();
+    if (!location.pathname || location.pathname === '/') {
+      return;
+    }
+    previous = $('.page').eq(0);
+    for (idx = _i = 0, _len = newPages.length; _i < _len; idx = ++_i) {
+      name = newPages[idx];
+      if (name !== oldPages[idx]) {
+        old = $('.page').eq(idx);
+        if (old) {
+          old.remove();
+        }
+        wiki.createPage(name, newLocs[idx]).insertAfter(previous).each(wiki.refresh);
+      }
+      previous = $('.page').eq(idx);
+    }
+    previous.nextAll().remove();
+    active.set($('.page').last());
+    return document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
+  };
+
+  state.first = function() {
+    var firstUrlLocs, firstUrlPages, idx, oldPages, urlPage, _i, _len, _results;
+    state.setUrl();
+    firstUrlPages = state.urlPages();
+    firstUrlLocs = state.urlLocs();
+    oldPages = state.pagesInDom();
+    _results = [];
+    for (idx = _i = 0, _len = firstUrlPages.length; _i < _len; idx = ++_i) {
+      urlPage = firstUrlPages[idx];
+      if (__indexOf.call(oldPages, urlPage) < 0) {
+        if (urlPage !== '') {
+          _results.push(wiki.createPage(urlPage, firstUrlLocs[idx]).appendTo('.main'));
+        } else {
+          _results.push(void 0);
+        }
+      }
+    }
+    return _results;
+  };
+
+}).call(this);
+
+},{"./active.coffee":9}],10:[function(require,module,exports){(function() {
+  var addToJournal, buildPageHeader, createFactory, emitHeader, emitTwins, handleDragging, initAddButton, initDragging, neighborhood, pageHandler, plugin, refresh, renderPageIntoPageElement, server, state, twinNdn, util, wiki,
     __slice = [].slice;
 
   util = require('./util.coffee');
@@ -1111,6 +1293,12 @@
   addToJournal = require('./addToJournal.coffee');
 
   wiki = require('./wiki.coffee');
+
+  server = location.host.split(':')[0];
+
+  twinNdn = new NDN({
+    host: server
+  });
 
   handleDragging = function(evt, ui) {
     var action, before, beforeElement, destinationPageElement, equals, item, itemElement, moveFromPage, moveToPage, moveWithinPage, order, sourcePageElement, sourceSite, thisPageElement;
@@ -1226,8 +1414,8 @@
     }
   };
 
-  emitTwins = wiki.emitTwins = function($page) {
-    var bins, exclusions, i, interest, name, page, server, site, slug, template, twinCallback, twinClosure, twinNdn, viewing;
+  emitTwins = wiki.emitTwins = function($page, twinNdn) {
+    var NeighborNetDB, bins, exclusions, i, indexName, interest, name, page, site, slug, template, twinCallback, twinClosure, viewing;
     page = $page.data('data');
     site = $page.data('site') || window.location.host;
     if (site === 'view' || site === 'origin') {
@@ -1235,22 +1423,30 @@
     }
     slug = wiki.asSlug(page.title);
     server = location.host.split(':')[0];
-    twinNdn = new NDN({
-      host: server
-    });
-    name = new Name('/sfw/' + slug);
+    indexName = '/sfw/' + slug;
+    name = new Name(indexName);
     interest = new Interest(name);
     i = 0;
     template = {};
     exclusions = [];
+    NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
+      return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').cursor(function(cursor) {
+        if (cursor.value.name === indexName) {
+          NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').del(cursor.value.id);
+        }
+        return cursor["continue"];
+      });
+    });
     twinCallback = function(json, version) {
-      var NeighborNetDB, bin, flags, fullName, indexName, legend, pageItem, signedInfo, twinClosure, twins;
+      var bin, flags, fullName, legend, pageItem, signedInfo, twinClosure, twins;
       if (json !== void 0) {
         page = JSON.parse(json);
         console.log(page.title);
         page.version = version;
         bin = version > viewing ? bins.newer : version < viewing ? bins.older : bins.same;
-        bin.push(page);
+        if (bin !== bins.same) {
+          bin.push(page);
+        }
         exclusions.push(DataUtils.toNumbersFromString(page.version));
         console.log('exclusions ', exclusions);
         template.exclude = new Exclude(exclusions);
@@ -1309,7 +1505,6 @@
     };
     twinClosure = new ContentClosure(twinNdn, name, interest, twinCallback);
     if ((viewing = Number(page.version)) != null) {
-      viewing = Math.floor(viewing / 1000) * 1000;
       bins = {
         newer: [],
         same: [],
@@ -1367,7 +1562,7 @@
       action = _ref2[_j];
       addToJournal($journal, action);
     }
-    emitTwins($page);
+    emitTwins($page, twinNdn);
     $journal.append("<div class=\"control-buttons\">\n  <a href=\"#\" class=\"button fork-page\" title=\"fork this page\">" + util.symbols['fork'] + "</a>\n  <a href=\"#\" class=\"button add-factory\" title=\"add paragraph\">" + util.symbols['add'] + "</a>\n</div>");
     return $footer.append("<a id=\"license\" href=\"http://creativecommons.org/licenses/by-sa/3.0/\">CC BY-SA 3.0</a> .\n<a class=\"show-page-source\" href=\"/" + slug + ".json?random=" + (util.randomBytes(4)) + "\" title=\"source\">JSON</a> .\n<a>" + (siteFound || 'origin') + "</a>");
   };
@@ -1392,7 +1587,7 @@
   };
 
   module.exports = refresh = wiki.refresh = function() {
-    var $page, NeighborNetDB, createGhostPage, getndn, pageInformation, pubndn, registerNeighbors, rev, server, slug, whenGotten, _ref;
+    var $page, NeighborNetDB, createGhostPage, getndn, pageInformation, pubndn, registerNeighbors, rev, slug, whenGotten, _ref;
     server = location.host.split(':')[0];
     getndn = new NDN({
       host: server
@@ -1515,176 +1710,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],8:[function(require,module,exports){(function() {
-  var active, state,
-    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
-
-  active = require('./active.coffee');
-
-  module.exports = state = {};
-
-  state.pagesInDom = function() {
-    return $.makeArray($(".page").map(function(_, el) {
-      return el.id;
-    }));
-  };
-
-  state.urlPages = function() {
-    var i;
-    return ((function() {
-      var _i, _len, _ref, _results;
-      _ref = $(location).attr('pathname').split('/');
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
-        i = _ref[_i];
-        _results.push(i);
-      }
-      return _results;
-    })()).slice(1);
-  };
-
-  state.locsInDom = function() {
-    return $.makeArray($(".page").map(function(_, el) {
-      return $(el).data('site') || 'view';
-    }));
-  };
-
-  state.urlLocs = function() {
-    var j, _i, _len, _ref, _results;
-    _ref = $(location).attr('pathname').split('/').slice(1);
-    _results = [];
-    for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
-      j = _ref[_i];
-      _results.push(j);
-    }
-    return _results;
-  };
-
-  state.setUrl = function() {
-    var idx, locs, page, pages, url, _ref;
-    document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
-    if (history && history.pushState) {
-      locs = state.locsInDom();
-      pages = state.pagesInDom();
-      url = ((function() {
-        var _i, _len, _results;
-        _results = [];
-        for (idx = _i = 0, _len = pages.length; _i < _len; idx = ++_i) {
-          page = pages[idx];
-          _results.push("/" + ((locs != null ? locs[idx] : void 0) || 'view') + "/" + page);
-        }
-        return _results;
-      })()).join('');
-      if (url !== $(location).attr('pathname')) {
-        return history.pushState(null, null, url);
-      }
-    }
-  };
-
-  state.show = function(e) {
-    var idx, name, newLocs, newPages, old, oldLocs, oldPages, previous, _i, _len, _ref;
-    oldPages = state.pagesInDom();
-    newPages = state.urlPages();
-    oldLocs = state.locsInDom();
-    newLocs = state.urlLocs();
-    if (!location.pathname || location.pathname === '/') {
-      return;
-    }
-    previous = $('.page').eq(0);
-    for (idx = _i = 0, _len = newPages.length; _i < _len; idx = ++_i) {
-      name = newPages[idx];
-      if (name !== oldPages[idx]) {
-        old = $('.page').eq(idx);
-        if (old) {
-          old.remove();
-        }
-        wiki.createPage(name, newLocs[idx]).insertAfter(previous).each(wiki.refresh);
-      }
-      previous = $('.page').eq(idx);
-    }
-    previous.nextAll().remove();
-    active.set($('.page').last());
-    return document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
-  };
-
-  state.first = function() {
-    var firstUrlLocs, firstUrlPages, idx, oldPages, urlPage, _i, _len, _results;
-    state.setUrl();
-    firstUrlPages = state.urlPages();
-    firstUrlLocs = state.urlLocs();
-    oldPages = state.pagesInDom();
-    _results = [];
-    for (idx = _i = 0, _len = firstUrlPages.length; _i < _len; idx = ++_i) {
-      urlPage = firstUrlPages[idx];
-      if (__indexOf.call(oldPages, urlPage) < 0) {
-        if (urlPage !== '') {
-          _results.push(wiki.createPage(urlPage, firstUrlLocs[idx]).appendTo('.main'));
-        } else {
-          _results.push(void 0);
-        }
-      }
-    }
-    return _results;
-  };
-
-}).call(this);
-
-},{"./active.coffee":9}],9:[function(require,module,exports){(function() {
-  var active, findScrollContainer, scrollTo;
-
-  module.exports = active = {};
-
-  active.scrollContainer = void 0;
-
-  findScrollContainer = function() {
-    var scrolled;
-    scrolled = $("body, html").filter(function() {
-      return $(this).scrollLeft() > 0;
-    });
-    if (scrolled.length > 0) {
-      return scrolled;
-    } else {
-      return $("body, html").scrollLeft(12).filter(function() {
-        return $(this).scrollLeft() > 0;
-      }).scrollTop(0);
-    }
-  };
-
-  scrollTo = function(el) {
-    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
-    if ((_ref = active.scrollContainer) == null) {
-      active.scrollContainer = findScrollContainer();
-    }
-    bodyWidth = $("body").width();
-    minX = active.scrollContainer.scrollLeft();
-    maxX = minX + bodyWidth;
-    target = el.position().left;
-    width = el.outerWidth(true);
-    contentWidth = $(".page").outerWidth(true) * $(".page").size();
-    if (target < minX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target
-      });
-    } else if (target + width > maxX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target - (bodyWidth - width)
-      });
-    } else if (maxX > $(".pages").outerWidth()) {
-      return active.scrollContainer.animate({
-        scrollLeft: Math.min(target, contentWidth - bodyWidth)
-      });
-    }
-  };
-
-  active.set = function(el) {
-    el = $(el);
-    $(".active").removeClass("active");
-    return scrollTo(el.addClass("active"));
-  };
-
-}).call(this);
-
-},{}],11:[function(require,module,exports){(function() {
+},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],11:[function(require,module,exports){(function() {
   var create;
 
   create = function(revIndex, data) {
