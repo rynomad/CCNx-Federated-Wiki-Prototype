@@ -6,6 +6,8 @@ neighborhood = require('./neighborhood.coffee')
 addToJournal = require('./addToJournal.coffee')
 wiki = require('./wiki.coffee')
 
+NDNs = {}
+
 server = location.host.split(':')[0]
 twinNdn = new NDN({host: server})
 
@@ -126,9 +128,10 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
   exclusions = []
   
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
-    NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').cursor((cursor) ->
-      if(cursor.value.name == indexName)
-        NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').del(cursor.value.id)
+    NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').cursor((content, cursor) ->
+      console.log cursor
+      if cursor? && (cursor.value.name == indexName)
+        NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').del(cursor.value.fullName)
       cursor.continue
     )
   )
@@ -162,7 +165,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
       pageItem = {name: indexName , fullName: fullName, signedInfo: signedInfo, page: page}
       
       NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
-        NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').put(pageItem)
+        NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').add(pageItem)
       )
       
       
@@ -276,7 +279,8 @@ module.exports = refresh = wiki.refresh = ->
   
   ### Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests ###
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
-    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor((cursor) ->
+    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor((content, cursor) ->
+      ndnId = wiki.asSlug(content.page.title)
       pubndn = new NDN({host: server})
       console.log 'refresh cursor content', cursor.value.name
       prefix = new Name(cursor.value.name)

@@ -477,7 +477,36 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./active.coffee":9,"./refresh.coffee":10}],5:[function(require,module,exports){(function() {
+},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./active.coffee":9,"./refresh.coffee":10}],4:[function(require,module,exports){(function() {
+
+  module.exports = function(page) {
+    var p1, p2, synopsis;
+    synopsis = page.synopsis;
+    if ((page != null) && (page.story != null)) {
+      p1 = page.story[0];
+      p2 = page.story[1];
+      if (p1 && p1.type === 'paragraph') {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && p2.type === 'paragraph') {
+        synopsis || (synopsis = p2.text);
+      }
+      if (p1 && (p1.text != null)) {
+        synopsis || (synopsis = p1.text);
+      }
+      if (p2 && (p2.text != null)) {
+        synopsis || (synopsis = p2.text);
+      }
+      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
+    } else {
+      synopsis = 'A page with no story.';
+    }
+    return synopsis;
+  };
+
+}).call(this);
+
+},{}],5:[function(require,module,exports){(function() {
   var util;
 
   module.exports = wiki.util = util = {};
@@ -600,35 +629,6 @@
       }
       return el.focus();
     }
-  };
-
-}).call(this);
-
-},{}],4:[function(require,module,exports){(function() {
-
-  module.exports = function(page) {
-    var p1, p2, synopsis;
-    synopsis = page.synopsis;
-    if ((page != null) && (page.story != null)) {
-      p1 = page.story[0];
-      p2 = page.story[1];
-      if (p1 && p1.type === 'paragraph') {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && p2.type === 'paragraph') {
-        synopsis || (synopsis = p2.text);
-      }
-      if (p1 && (p1.text != null)) {
-        synopsis || (synopsis = p1.text);
-      }
-      if (p2 && (p2.text != null)) {
-        synopsis || (synopsis = p2.text);
-      }
-      synopsis || (synopsis = (page.story != null) && ("A page with " + page.story.length + " items."));
-    } else {
-      synopsis = 'A page with no story.';
-    }
-    return synopsis;
   };
 
 }).call(this);
@@ -912,7 +912,7 @@
     /*
     NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
       console.log 'testings'
-      NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').cursor((cursor)  ->
+      NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').cursor((content, cursor)  ->
         console.log content
         if content?
           NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id)
@@ -1162,121 +1162,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5}],8:[function(require,module,exports){(function() {
-  var active, state,
-    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
-
-  active = require('./active.coffee');
-
-  module.exports = state = {};
-
-  state.pagesInDom = function() {
-    return $.makeArray($(".page").map(function(_, el) {
-      return el.id;
-    }));
-  };
-
-  state.urlPages = function() {
-    var i;
-    return ((function() {
-      var _i, _len, _ref, _results;
-      _ref = $(location).attr('pathname').split('/');
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
-        i = _ref[_i];
-        _results.push(i);
-      }
-      return _results;
-    })()).slice(1);
-  };
-
-  state.locsInDom = function() {
-    return $.makeArray($(".page").map(function(_, el) {
-      return $(el).data('site') || 'view';
-    }));
-  };
-
-  state.urlLocs = function() {
-    var j, _i, _len, _ref, _results;
-    _ref = $(location).attr('pathname').split('/').slice(1);
-    _results = [];
-    for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
-      j = _ref[_i];
-      _results.push(j);
-    }
-    return _results;
-  };
-
-  state.setUrl = function() {
-    var idx, locs, page, pages, url, _ref;
-    document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
-    if (history && history.pushState) {
-      locs = state.locsInDom();
-      pages = state.pagesInDom();
-      url = ((function() {
-        var _i, _len, _results;
-        _results = [];
-        for (idx = _i = 0, _len = pages.length; _i < _len; idx = ++_i) {
-          page = pages[idx];
-          _results.push("/" + ((locs != null ? locs[idx] : void 0) || 'view') + "/" + page);
-        }
-        return _results;
-      })()).join('');
-      if (url !== $(location).attr('pathname')) {
-        return history.pushState(null, null, url);
-      }
-    }
-  };
-
-  state.show = function(e) {
-    var idx, name, newLocs, newPages, old, oldLocs, oldPages, previous, _i, _len, _ref;
-    oldPages = state.pagesInDom();
-    newPages = state.urlPages();
-    oldLocs = state.locsInDom();
-    newLocs = state.urlLocs();
-    if (!location.pathname || location.pathname === '/') {
-      return;
-    }
-    previous = $('.page').eq(0);
-    for (idx = _i = 0, _len = newPages.length; _i < _len; idx = ++_i) {
-      name = newPages[idx];
-      if (name !== oldPages[idx]) {
-        old = $('.page').eq(idx);
-        if (old) {
-          old.remove();
-        }
-        wiki.createPage(name, newLocs[idx]).insertAfter(previous).each(wiki.refresh);
-      }
-      previous = $('.page').eq(idx);
-    }
-    previous.nextAll().remove();
-    active.set($('.page').last());
-    return document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
-  };
-
-  state.first = function() {
-    var firstUrlLocs, firstUrlPages, idx, oldPages, urlPage, _i, _len, _results;
-    state.setUrl();
-    firstUrlPages = state.urlPages();
-    firstUrlLocs = state.urlLocs();
-    oldPages = state.pagesInDom();
-    _results = [];
-    for (idx = _i = 0, _len = firstUrlPages.length; _i < _len; idx = ++_i) {
-      urlPage = firstUrlPages[idx];
-      if (__indexOf.call(oldPages, urlPage) < 0) {
-        if (urlPage !== '') {
-          _results.push(wiki.createPage(urlPage, firstUrlLocs[idx]).appendTo('.main'));
-        } else {
-          _results.push(void 0);
-        }
-      }
-    }
-    return _results;
-  };
-
-}).call(this);
-
-},{"./active.coffee":9}],10:[function(require,module,exports){(function() {
+},{"./util.coffee":5}],10:[function(require,module,exports){(function() {
   var addToJournal, buildPageHeader, createFactory, emitHeader, emitTwins, handleDragging, initAddButton, initDragging, neighborhood, pageHandler, plugin, refresh, renderPageIntoPageElement, server, state, twinNdn, util, wiki,
     __slice = [].slice;
 
@@ -1430,9 +1316,10 @@
     template = {};
     exclusions = [];
     NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-      return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').cursor(function(cursor) {
-        if (cursor.value.name === indexName) {
-          NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').del(cursor.value.id);
+      return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').cursor(function(content, cursor) {
+        console.log(cursor);
+        if ((cursor != null) && (cursor.value.name === indexName)) {
+          NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').del(cursor.value.fullName);
         }
         return cursor["continue"];
       });
@@ -1468,7 +1355,7 @@
           page: page
         };
         NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-          return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').put(pageItem);
+          return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').add(pageItem);
         });
         for (legend in bins) {
           bin = bins[legend];
@@ -1601,7 +1488,7 @@
     */
 
     NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor(function(cursor) {
+      return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor(function(content, cursor) {
         var prefix, pubClosure, si;
         pubndn = new NDN({
           host: server
@@ -1710,7 +1597,121 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],11:[function(require,module,exports){(function() {
+},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],8:[function(require,module,exports){(function() {
+  var active, state,
+    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+
+  active = require('./active.coffee');
+
+  module.exports = state = {};
+
+  state.pagesInDom = function() {
+    return $.makeArray($(".page").map(function(_, el) {
+      return el.id;
+    }));
+  };
+
+  state.urlPages = function() {
+    var i;
+    return ((function() {
+      var _i, _len, _ref, _results;
+      _ref = $(location).attr('pathname').split('/');
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
+        i = _ref[_i];
+        _results.push(i);
+      }
+      return _results;
+    })()).slice(1);
+  };
+
+  state.locsInDom = function() {
+    return $.makeArray($(".page").map(function(_, el) {
+      return $(el).data('site') || 'view';
+    }));
+  };
+
+  state.urlLocs = function() {
+    var j, _i, _len, _ref, _results;
+    _ref = $(location).attr('pathname').split('/').slice(1);
+    _results = [];
+    for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
+      j = _ref[_i];
+      _results.push(j);
+    }
+    return _results;
+  };
+
+  state.setUrl = function() {
+    var idx, locs, page, pages, url, _ref;
+    document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
+    if (history && history.pushState) {
+      locs = state.locsInDom();
+      pages = state.pagesInDom();
+      url = ((function() {
+        var _i, _len, _results;
+        _results = [];
+        for (idx = _i = 0, _len = pages.length; _i < _len; idx = ++_i) {
+          page = pages[idx];
+          _results.push("/" + ((locs != null ? locs[idx] : void 0) || 'view') + "/" + page);
+        }
+        return _results;
+      })()).join('');
+      if (url !== $(location).attr('pathname')) {
+        return history.pushState(null, null, url);
+      }
+    }
+  };
+
+  state.show = function(e) {
+    var idx, name, newLocs, newPages, old, oldLocs, oldPages, previous, _i, _len, _ref;
+    oldPages = state.pagesInDom();
+    newPages = state.urlPages();
+    oldLocs = state.locsInDom();
+    newLocs = state.urlLocs();
+    if (!location.pathname || location.pathname === '/') {
+      return;
+    }
+    previous = $('.page').eq(0);
+    for (idx = _i = 0, _len = newPages.length; _i < _len; idx = ++_i) {
+      name = newPages[idx];
+      if (name !== oldPages[idx]) {
+        old = $('.page').eq(idx);
+        if (old) {
+          old.remove();
+        }
+        wiki.createPage(name, newLocs[idx]).insertAfter(previous).each(wiki.refresh);
+      }
+      previous = $('.page').eq(idx);
+    }
+    previous.nextAll().remove();
+    active.set($('.page').last());
+    return document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
+  };
+
+  state.first = function() {
+    var firstUrlLocs, firstUrlPages, idx, oldPages, urlPage, _i, _len, _results;
+    state.setUrl();
+    firstUrlPages = state.urlPages();
+    firstUrlLocs = state.urlLocs();
+    oldPages = state.pagesInDom();
+    _results = [];
+    for (idx = _i = 0, _len = firstUrlPages.length; _i < _len; idx = ++_i) {
+      urlPage = firstUrlPages[idx];
+      if (__indexOf.call(oldPages, urlPage) < 0) {
+        if (urlPage !== '') {
+          _results.push(wiki.createPage(urlPage, firstUrlLocs[idx]).appendTo('.main'));
+        } else {
+          _results.push(void 0);
+        }
+      }
+    }
+    return _results;
+  };
+
+}).call(this);
+
+},{"./active.coffee":9}],11:[function(require,module,exports){(function() {
   var create;
 
   create = function(revIndex, data) {
@@ -1777,36 +1778,7 @@
 
 }).call(this);
 
-},{}],12:[function(require,module,exports){(function() {
-  var util;
-
-  util = require('./util.coffee');
-
-  module.exports = function(journalElement, action) {
-    var actionElement, actionTitle, controls, pageElement, prev;
-    pageElement = journalElement.parents('.page:first');
-    if (action.type === 'edit') {
-      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
-    }
-    actionTitle = action.type;
-    if (action.date != null) {
-      actionTitle += " " + (util.formatElapsedTime(action.date));
-    }
-    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
-    controls = journalElement.children('.control-buttons');
-    if (controls.length > 0) {
-      actionElement.insertBefore(controls);
-    } else {
-      actionElement.appendTo(journalElement);
-    }
-    if (action.type === 'fork' && (action.site != null)) {
-      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5}],13:[function(require,module,exports){(function() {
+},{}],13:[function(require,module,exports){(function() {
   var active, createSearch, neighborhood, nextAvailableFetch, nextFetchInterval, populateSiteInfoFor, util, _ref,
     __hasProp = {}.hasOwnProperty;
 
@@ -1954,7 +1926,36 @@
 
 }).call(this);
 
-},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],14:[function(require,module,exports){(function() {
+},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],12:[function(require,module,exports){(function() {
+  var util;
+
+  util = require('./util.coffee');
+
+  module.exports = function(journalElement, action) {
+    var actionElement, actionTitle, controls, pageElement, prev;
+    pageElement = journalElement.parents('.page:first');
+    if (action.type === 'edit') {
+      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
+    }
+    actionTitle = action.type;
+    if (action.date != null) {
+      actionTitle += " " + (util.formatElapsedTime(action.date));
+    }
+    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
+    controls = journalElement.children('.control-buttons');
+    if (controls.length > 0) {
+      actionElement.insertBefore(controls);
+    } else {
+      actionElement.appendTo(journalElement);
+    }
+    if (action.type === 'fork' && (action.site != null)) {
+      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
+    }
+  };
+
+}).call(this);
+
+},{"./util.coffee":5}],14:[function(require,module,exports){(function() {
   var active, createSearch, util;
 
   util = require('./util.coffee');

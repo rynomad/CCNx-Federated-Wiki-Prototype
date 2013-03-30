@@ -182,7 +182,7 @@ publishToIndexedDB = ( page, indexName, action) ->
   ###
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
     console.log 'testings'
-    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').cursor((cursor)  ->
+    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').cursor((content, cursor)  ->
       console.log content
       if content?
         NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id)
