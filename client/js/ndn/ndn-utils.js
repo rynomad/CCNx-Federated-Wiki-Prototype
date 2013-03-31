@@ -1,3 +1,5 @@
+var NDNs = new Array();
+
 function ContentChannel(uri, requestContent) {
 	this.requestContent = requestContent;
 

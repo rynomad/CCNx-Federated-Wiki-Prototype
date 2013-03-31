@@ -15,8 +15,6 @@ pageFromLocalStorage = (slug)->
 
 recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn}) ->
   {slug,rev,site} = pageInformation
-  console.log pageInformation
-  console.log ndn
   getCallback = (json, version) ->
     if json != undefined
       console.log('calling',json)
@@ -105,8 +103,15 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
 publishToIndexedDB = ( page, indexName, action) ->
   server = location.host.split(':')
   server = server[0]
-  ndn = new NDN({host: server})
-
+  console.log NDNs[page.title]
+  if NDNs[page.title] == undefined
+    NDNs[page.title] = new NDN({host: server})
+    console.log 'created new NDN'
+  else
+    console.log 'using existing NDN'
+  
+  ndn = NDNs[page.title]
+  
   signedInfo = new SignedInfo()
   signedInfo.freshnessSeconds = 5
   timestamp = signedInfo.timestamp.msec

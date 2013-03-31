@@ -6,7 +6,7 @@ neighborhood = require('./neighborhood.coffee')
 addToJournal = require('./addToJournal.coffee')
 wiki = require('./wiki.coffee')
 
-NDNs = {}
+
 
 server = location.host.split(':')[0]
 twinNdn = new NDN({host: server})
@@ -272,23 +272,25 @@ wiki.buildPage = (data,siteFound,$page) ->
 
 module.exports = refresh = wiki.refresh = ->
   server = location.host.split(':')[0]
-  getndn = new NDN({host: server})
-  pubndn = new NDN({host: server})
+  if NDNs['getndn'] == undefined
+    NDNs['getndn'] = new NDN({host: server})
   $page = $(this)
   console.log '$page',$page
   
   ### Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests ###
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
     NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor((content, cursor) ->
-      ndnId = wiki.asSlug(content.page.title)
-      pubndn = new NDN({host: server})
+      ndnId = content.page.title
+      if NDNs[ndnId] == undefined
+        NDNs[ndnId] = new NDN({host: server})
+      pubndn = NDNs[ndnId]
       console.log 'refresh cursor content', cursor.value.name
       prefix = new Name(cursor.value.name)
       si = new SignedInfo()
       si.freshnessSeconds = 5
       pubClosure = new AsyncPutClosure(pubndn, new Name(cursor.value.fullName), JSON.stringify(cursor.value.page), si)
       pubndn.registerPrefix(new Name(cursor.value.name), pubClosure)
-      console.log 'published on pubndn'
+      console.log 'published on pubndn', NDNs["#{ndnId}"]
       cursor.continue()
     )
   )
@@ -354,4 +356,4 @@ module.exports = refresh = wiki.refresh = ->
     whenGotten: whenGotten
     whenNotGotten: createGhostPage
     pageInformation: pageInformation
-    ndn: getndn
+    ndn: NDNs['getndn']

@@ -506,6 +506,61 @@
 
 }).call(this);
 
+},{}],9:[function(require,module,exports){(function() {
+  var active, findScrollContainer, scrollTo;
+
+  module.exports = active = {};
+
+  active.scrollContainer = void 0;
+
+  findScrollContainer = function() {
+    var scrolled;
+    scrolled = $("body, html").filter(function() {
+      return $(this).scrollLeft() > 0;
+    });
+    if (scrolled.length > 0) {
+      return scrolled;
+    } else {
+      return $("body, html").scrollLeft(12).filter(function() {
+        return $(this).scrollLeft() > 0;
+      }).scrollTop(0);
+    }
+  };
+
+  scrollTo = function(el) {
+    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
+    if ((_ref = active.scrollContainer) == null) {
+      active.scrollContainer = findScrollContainer();
+    }
+    bodyWidth = $("body").width();
+    minX = active.scrollContainer.scrollLeft();
+    maxX = minX + bodyWidth;
+    target = el.position().left;
+    width = el.outerWidth(true);
+    contentWidth = $(".page").outerWidth(true) * $(".page").size();
+    if (target < minX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target
+      });
+    } else if (target + width > maxX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target - (bodyWidth - width)
+      });
+    } else if (maxX > $(".pages").outerWidth()) {
+      return active.scrollContainer.animate({
+        scrollLeft: Math.min(target, contentWidth - bodyWidth)
+      });
+    }
+  };
+
+  active.set = function(el) {
+    el = $(el);
+    $(".active").removeClass("active");
+    return scrollTo(el.addClass("active"));
+  };
+
+}).call(this);
+
 },{}],5:[function(require,module,exports){(function() {
   var util;
 
@@ -633,62 +688,272 @@
 
 }).call(this);
 
-},{}],9:[function(require,module,exports){(function() {
-  var active, findScrollContainer, scrollTo;
+},{}],7:[function(require,module,exports){(function() {
+  var getScript, plugin, scripts, util;
 
-  module.exports = active = {};
+  util = require('./util.coffee');
 
-  active.scrollContainer = void 0;
+  module.exports = plugin = {};
 
-  findScrollContainer = function() {
-    var scrolled;
-    scrolled = $("body, html").filter(function() {
-      return $(this).scrollLeft() > 0;
-    });
-    if (scrolled.length > 0) {
-      return scrolled;
+  scripts = {};
+
+  getScript = wiki.getScript = function(url, callback) {
+    if (callback == null) {
+      callback = function() {};
+    }
+    if (scripts[url] != null) {
+      return callback();
     } else {
-      return $("body, html").scrollLeft(12).filter(function() {
-        return $(this).scrollLeft() > 0;
-      }).scrollTop(0);
-    }
-  };
+      /*
+      $.getScript(url)
+        .done ->
+          scripts[url] = true
+          callback()
+        .fail ->
+          callback()
+      */
 
-  scrollTo = function(el) {
-    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
-    if ((_ref = active.scrollContainer) == null) {
-      active.scrollContainer = findScrollContainer();
-    }
-    bodyWidth = $("body").width();
-    minX = active.scrollContainer.scrollLeft();
-    maxX = minX + bodyWidth;
-    target = el.position().left;
-    width = el.outerWidth(true);
-    contentWidth = $(".page").outerWidth(true) * $(".page").size();
-    if (target < minX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target
-      });
-    } else if (target + width > maxX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target - (bodyWidth - width)
-      });
-    } else if (maxX > $(".pages").outerWidth()) {
-      return active.scrollContainer.animate({
-        scrollLeft: Math.min(target, contentWidth - bodyWidth)
+      return $.ajax({
+        cache: true,
+        dataType: "script",
+        url: url,
+        success: function() {
+          scripts[url] = true;
+          return callback();
+        }
       });
     }
   };
 
-  active.set = function(el) {
-    el = $(el);
-    $(".active").removeClass("active");
-    return scrollTo(el.addClass("active"));
+  plugin.get = wiki.getPlugin = function(name, callback) {
+    if (window.plugins[name]) {
+      return callback(window.plugins[name]);
+    }
+    return getScript("/plugins/" + name + "/" + name + ".js", function() {
+      if (window.plugins[name]) {
+        return callback(window.plugins[name]);
+      }
+      return getScript("/plugins/" + name + ".js", function() {
+        return callback(window.plugins[name]);
+      });
+    });
+  };
+
+  plugin["do"] = wiki.doPlugin = function(div, item, done) {
+    var error;
+    if (done == null) {
+      done = function() {};
+    }
+    error = function(ex) {
+      var errorElement;
+      errorElement = $("<div />").addClass('error');
+      errorElement.text(ex.toString());
+      return div.append(errorElement);
+    };
+    div.data('pageElement', div.parents(".page"));
+    div.data('item', item);
+    return plugin.get(item.type, function(script) {
+      try {
+        if (script == null) {
+          throw TypeError("Can't find plugin for '" + item.type + "'");
+        }
+        if (script.emit.length > 2) {
+          return script.emit(div, item, function() {
+            script.bind(div, item);
+            return done();
+          });
+        } else {
+          script.emit(div, item);
+          script.bind(div, item);
+          return done();
+        }
+      } catch (err) {
+        wiki.log('plugin error', err);
+        error(err);
+        return done();
+      }
+    });
+  };
+
+  wiki.registerPlugin = function(pluginName, pluginFn) {
+    return window.plugins[pluginName] = pluginFn($);
+  };
+
+  window.plugins = {
+    paragraph: {
+      emit: function(div, item) {
+        var text, _i, _len, _ref, _results;
+        _ref = item.text.split(/\n\n+/);
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          text = _ref[_i];
+          if (text.match(/\S/)) {
+            _results.push(div.append("<p>" + (wiki.resolveLinks(text)) + "</p>"));
+          } else {
+            _results.push(void 0);
+          }
+        }
+        return _results;
+      },
+      bind: function(div, item) {
+        return div.dblclick(function() {
+          return wiki.textEditor(div, item, null, true);
+        });
+      }
+    },
+    image: {
+      emit: function(div, item) {
+        item.text || (item.text = item.caption);
+        return div.append("<img class=thumbnail src=\"" + item.url + "\"> <p>" + (wiki.resolveLinks(item.text)) + "</p>");
+      },
+      bind: function(div, item) {
+        div.dblclick(function() {
+          return wiki.textEditor(div, item);
+        });
+        return div.find('img').dblclick(function() {
+          return wiki.dialog(item.text, this);
+        });
+      }
+    },
+    future: {
+      emit: function(div, item) {
+        var info, _i, _len, _ref, _results;
+        div.append("" + item.text + "<br><br><button class=\"create\">create</button> new blank page");
+        if (((info = wiki.neighborhood[location.host]) != null) && (info.sitemap != null)) {
+          _ref = info.sitemap;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            item = _ref[_i];
+            if (item.slug.match(/-template$/)) {
+              _results.push(div.append("<br><button class=\"create\" data-slug=" + item.slug + ">create</button> from " + (wiki.resolveLinks("[[" + item.title + "]]"))));
+            } else {
+              _results.push(void 0);
+            }
+          }
+          return _results;
+        }
+      },
+      bind: function(div, item) {}
+    }
   };
 
 }).call(this);
 
-},{}],6:[function(require,module,exports){(function() {
+},{"./util.coffee":5}],8:[function(require,module,exports){(function() {
+  var active, state,
+    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+
+  active = require('./active.coffee');
+
+  module.exports = state = {};
+
+  state.pagesInDom = function() {
+    return $.makeArray($(".page").map(function(_, el) {
+      return el.id;
+    }));
+  };
+
+  state.urlPages = function() {
+    var i;
+    return ((function() {
+      var _i, _len, _ref, _results;
+      _ref = $(location).attr('pathname').split('/');
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
+        i = _ref[_i];
+        _results.push(i);
+      }
+      return _results;
+    })()).slice(1);
+  };
+
+  state.locsInDom = function() {
+    return $.makeArray($(".page").map(function(_, el) {
+      return $(el).data('site') || 'view';
+    }));
+  };
+
+  state.urlLocs = function() {
+    var j, _i, _len, _ref, _results;
+    _ref = $(location).attr('pathname').split('/').slice(1);
+    _results = [];
+    for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
+      j = _ref[_i];
+      _results.push(j);
+    }
+    return _results;
+  };
+
+  state.setUrl = function() {
+    var idx, locs, page, pages, url, _ref;
+    document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
+    if (history && history.pushState) {
+      locs = state.locsInDom();
+      pages = state.pagesInDom();
+      url = ((function() {
+        var _i, _len, _results;
+        _results = [];
+        for (idx = _i = 0, _len = pages.length; _i < _len; idx = ++_i) {
+          page = pages[idx];
+          _results.push("/" + ((locs != null ? locs[idx] : void 0) || 'view') + "/" + page);
+        }
+        return _results;
+      })()).join('');
+      if (url !== $(location).attr('pathname')) {
+        return history.pushState(null, null, url);
+      }
+    }
+  };
+
+  state.show = function(e) {
+    var idx, name, newLocs, newPages, old, oldLocs, oldPages, previous, _i, _len, _ref;
+    oldPages = state.pagesInDom();
+    newPages = state.urlPages();
+    oldLocs = state.locsInDom();
+    newLocs = state.urlLocs();
+    if (!location.pathname || location.pathname === '/') {
+      return;
+    }
+    previous = $('.page').eq(0);
+    for (idx = _i = 0, _len = newPages.length; _i < _len; idx = ++_i) {
+      name = newPages[idx];
+      if (name !== oldPages[idx]) {
+        old = $('.page').eq(idx);
+        if (old) {
+          old.remove();
+        }
+        wiki.createPage(name, newLocs[idx]).insertAfter(previous).each(wiki.refresh);
+      }
+      previous = $('.page').eq(idx);
+    }
+    previous.nextAll().remove();
+    active.set($('.page').last());
+    return document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
+  };
+
+  state.first = function() {
+    var firstUrlLocs, firstUrlPages, idx, oldPages, urlPage, _i, _len, _results;
+    state.setUrl();
+    firstUrlPages = state.urlPages();
+    firstUrlLocs = state.urlLocs();
+    oldPages = state.pagesInDom();
+    _results = [];
+    for (idx = _i = 0, _len = firstUrlPages.length; _i < _len; idx = ++_i) {
+      urlPage = firstUrlPages[idx];
+      if (__indexOf.call(oldPages, urlPage) < 0) {
+        if (urlPage !== '') {
+          _results.push(wiki.createPage(urlPage, firstUrlLocs[idx]).appendTo('.main'));
+        } else {
+          _results.push(void 0);
+        }
+      }
+    }
+    return _results;
+  };
+
+}).call(this);
+
+},{"./active.coffee":9}],6:[function(require,module,exports){(function() {
   var addToJournal, pageFromLocalStorage, pageHandler, publishToIndexedDB, pushToLocal, pushToServer, recursiveGet, revision, state, util;
 
   util = require('./util.coffee');
@@ -714,8 +979,6 @@
     var NeighborNetDB, getCallback, getClosure, interest, localContext, name, ndn, pageInformation, rev, site, slug, template, whenGotten, whenNotGotten;
     pageInformation = _arg.pageInformation, whenGotten = _arg.whenGotten, whenNotGotten = _arg.whenNotGotten, localContext = _arg.localContext, ndn = _arg.ndn;
     slug = pageInformation.slug, rev = pageInformation.rev, site = pageInformation.site;
-    console.log(pageInformation);
-    console.log(ndn);
     getCallback = function(json, version) {
       var action, indexName, page;
       if (json !== void 0) {
@@ -825,9 +1088,16 @@
     var NeighborNetDB, ccnName, contentPublished, fullname, i, idx, item, name, ndn, pageItem, prefix, publishClosure, putClosure, server, signedInfo, timestamp, _i, _len, _ref;
     server = location.host.split(':');
     server = server[0];
-    ndn = new NDN({
-      host: server
-    });
+    console.log(NDNs[page.title]);
+    if (NDNs[page.title] === void 0) {
+      NDNs[page.title] = new NDN({
+        host: server
+      });
+      console.log('created new NDN');
+    } else {
+      console.log('using existing NDN');
+    }
+    ndn = NDNs[page.title];
     signedInfo = new SignedInfo();
     signedInfo.freshnessSeconds = 5;
     timestamp = signedInfo.timestamp.msec;
@@ -1011,158 +1281,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./state.coffee":8,"./revision.coffee":11,"./addToJournal.coffee":12}],7:[function(require,module,exports){(function() {
-  var getScript, plugin, scripts, util;
-
-  util = require('./util.coffee');
-
-  module.exports = plugin = {};
-
-  scripts = {};
-
-  getScript = wiki.getScript = function(url, callback) {
-    if (callback == null) {
-      callback = function() {};
-    }
-    if (scripts[url] != null) {
-      return callback();
-    } else {
-      /*
-      $.getScript(url)
-        .done ->
-          scripts[url] = true
-          callback()
-        .fail ->
-          callback()
-      */
-
-      return $.ajax({
-        cache: true,
-        dataType: "script",
-        url: url,
-        success: function() {
-          scripts[url] = true;
-          return callback();
-        }
-      });
-    }
-  };
-
-  plugin.get = wiki.getPlugin = function(name, callback) {
-    if (window.plugins[name]) {
-      return callback(window.plugins[name]);
-    }
-    return getScript("/plugins/" + name + "/" + name + ".js", function() {
-      if (window.plugins[name]) {
-        return callback(window.plugins[name]);
-      }
-      return getScript("/plugins/" + name + ".js", function() {
-        return callback(window.plugins[name]);
-      });
-    });
-  };
-
-  plugin["do"] = wiki.doPlugin = function(div, item, done) {
-    var error;
-    if (done == null) {
-      done = function() {};
-    }
-    error = function(ex) {
-      var errorElement;
-      errorElement = $("<div />").addClass('error');
-      errorElement.text(ex.toString());
-      return div.append(errorElement);
-    };
-    div.data('pageElement', div.parents(".page"));
-    div.data('item', item);
-    return plugin.get(item.type, function(script) {
-      try {
-        if (script == null) {
-          throw TypeError("Can't find plugin for '" + item.type + "'");
-        }
-        if (script.emit.length > 2) {
-          return script.emit(div, item, function() {
-            script.bind(div, item);
-            return done();
-          });
-        } else {
-          script.emit(div, item);
-          script.bind(div, item);
-          return done();
-        }
-      } catch (err) {
-        wiki.log('plugin error', err);
-        error(err);
-        return done();
-      }
-    });
-  };
-
-  wiki.registerPlugin = function(pluginName, pluginFn) {
-    return window.plugins[pluginName] = pluginFn($);
-  };
-
-  window.plugins = {
-    paragraph: {
-      emit: function(div, item) {
-        var text, _i, _len, _ref, _results;
-        _ref = item.text.split(/\n\n+/);
-        _results = [];
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          text = _ref[_i];
-          if (text.match(/\S/)) {
-            _results.push(div.append("<p>" + (wiki.resolveLinks(text)) + "</p>"));
-          } else {
-            _results.push(void 0);
-          }
-        }
-        return _results;
-      },
-      bind: function(div, item) {
-        return div.dblclick(function() {
-          return wiki.textEditor(div, item, null, true);
-        });
-      }
-    },
-    image: {
-      emit: function(div, item) {
-        item.text || (item.text = item.caption);
-        return div.append("<img class=thumbnail src=\"" + item.url + "\"> <p>" + (wiki.resolveLinks(item.text)) + "</p>");
-      },
-      bind: function(div, item) {
-        div.dblclick(function() {
-          return wiki.textEditor(div, item);
-        });
-        return div.find('img').dblclick(function() {
-          return wiki.dialog(item.text, this);
-        });
-      }
-    },
-    future: {
-      emit: function(div, item) {
-        var info, _i, _len, _ref, _results;
-        div.append("" + item.text + "<br><br><button class=\"create\">create</button> new blank page");
-        if (((info = wiki.neighborhood[location.host]) != null) && (info.sitemap != null)) {
-          _ref = info.sitemap;
-          _results = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            item = _ref[_i];
-            if (item.slug.match(/-template$/)) {
-              _results.push(div.append("<br><button class=\"create\" data-slug=" + item.slug + ">create</button> from " + (wiki.resolveLinks("[[" + item.title + "]]"))));
-            } else {
-              _results.push(void 0);
-            }
-          }
-          return _results;
-        }
-      },
-      bind: function(div, item) {}
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5}],10:[function(require,module,exports){(function() {
+},{"./util.coffee":5,"./state.coffee":8,"./revision.coffee":11,"./addToJournal.coffee":12}],10:[function(require,module,exports){(function() {
   var addToJournal, buildPageHeader, createFactory, emitHeader, emitTwins, handleDragging, initAddButton, initDragging, neighborhood, pageHandler, plugin, refresh, renderPageIntoPageElement, server, state, twinNdn, util, wiki,
     __slice = [].slice;
 
@@ -1474,14 +1593,13 @@
   };
 
   module.exports = refresh = wiki.refresh = function() {
-    var $page, NeighborNetDB, createGhostPage, getndn, pageInformation, pubndn, registerNeighbors, rev, slug, whenGotten, _ref;
+    var $page, NeighborNetDB, createGhostPage, pageInformation, registerNeighbors, rev, slug, whenGotten, _ref;
     server = location.host.split(':')[0];
-    getndn = new NDN({
-      host: server
-    });
-    pubndn = new NDN({
-      host: server
-    });
+    if (NDNs['getndn'] === void 0) {
+      NDNs['getndn'] = new NDN({
+        host: server
+      });
+    }
     $page = $(this);
     console.log('$page', $page);
     /* Register the /NeighborNet/ prefix with one closure that handles all page requests (may run into race conditions, explore queueing) and another that handles content requests
@@ -1489,17 +1607,21 @@
 
     NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
       return NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readonly').store('pageContentObjects').cursor(function(content, cursor) {
-        var prefix, pubClosure, si;
-        pubndn = new NDN({
-          host: server
-        });
+        var ndnId, prefix, pubClosure, pubndn, si;
+        ndnId = content.page.title;
+        if (NDNs[ndnId] === void 0) {
+          NDNs[ndnId] = new NDN({
+            host: server
+          });
+        }
+        pubndn = NDNs[ndnId];
         console.log('refresh cursor content', cursor.value.name);
         prefix = new Name(cursor.value.name);
         si = new SignedInfo();
         si.freshnessSeconds = 5;
         pubClosure = new AsyncPutClosure(pubndn, new Name(cursor.value.fullName), JSON.stringify(cursor.value.page), si);
         pubndn.registerPrefix(new Name(cursor.value.name), pubClosure);
-        console.log('published on pubndn');
+        console.log('published on pubndn', NDNs["" + ndnId]);
         return cursor["continue"]();
       });
     });
@@ -1591,127 +1713,42 @@
       whenGotten: whenGotten,
       whenNotGotten: createGhostPage,
       pageInformation: pageInformation,
-      ndn: getndn
+      ndn: NDNs['getndn']
     });
   };
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],8:[function(require,module,exports){(function() {
-  var active, state,
-    __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
+},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],12:[function(require,module,exports){(function() {
+  var util;
 
-  active = require('./active.coffee');
+  util = require('./util.coffee');
 
-  module.exports = state = {};
-
-  state.pagesInDom = function() {
-    return $.makeArray($(".page").map(function(_, el) {
-      return el.id;
-    }));
-  };
-
-  state.urlPages = function() {
-    var i;
-    return ((function() {
-      var _i, _len, _ref, _results;
-      _ref = $(location).attr('pathname').split('/');
-      _results = [];
-      for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
-        i = _ref[_i];
-        _results.push(i);
-      }
-      return _results;
-    })()).slice(1);
-  };
-
-  state.locsInDom = function() {
-    return $.makeArray($(".page").map(function(_, el) {
-      return $(el).data('site') || 'view';
-    }));
-  };
-
-  state.urlLocs = function() {
-    var j, _i, _len, _ref, _results;
-    _ref = $(location).attr('pathname').split('/').slice(1);
-    _results = [];
-    for (_i = 0, _len = _ref.length; _i < _len; _i += 2) {
-      j = _ref[_i];
-      _results.push(j);
+  module.exports = function(journalElement, action) {
+    var actionElement, actionTitle, controls, pageElement, prev;
+    pageElement = journalElement.parents('.page:first');
+    if (action.type === 'edit') {
+      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
     }
-    return _results;
-  };
-
-  state.setUrl = function() {
-    var idx, locs, page, pages, url, _ref;
-    document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
-    if (history && history.pushState) {
-      locs = state.locsInDom();
-      pages = state.pagesInDom();
-      url = ((function() {
-        var _i, _len, _results;
-        _results = [];
-        for (idx = _i = 0, _len = pages.length; _i < _len; idx = ++_i) {
-          page = pages[idx];
-          _results.push("/" + ((locs != null ? locs[idx] : void 0) || 'view') + "/" + page);
-        }
-        return _results;
-      })()).join('');
-      if (url !== $(location).attr('pathname')) {
-        return history.pushState(null, null, url);
-      }
+    actionTitle = action.type;
+    if (action.date != null) {
+      actionTitle += " " + (util.formatElapsedTime(action.date));
     }
-  };
-
-  state.show = function(e) {
-    var idx, name, newLocs, newPages, old, oldLocs, oldPages, previous, _i, _len, _ref;
-    oldPages = state.pagesInDom();
-    newPages = state.urlPages();
-    oldLocs = state.locsInDom();
-    newLocs = state.urlLocs();
-    if (!location.pathname || location.pathname === '/') {
-      return;
+    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
+    controls = journalElement.children('.control-buttons');
+    if (controls.length > 0) {
+      actionElement.insertBefore(controls);
+    } else {
+      actionElement.appendTo(journalElement);
     }
-    previous = $('.page').eq(0);
-    for (idx = _i = 0, _len = newPages.length; _i < _len; idx = ++_i) {
-      name = newPages[idx];
-      if (name !== oldPages[idx]) {
-        old = $('.page').eq(idx);
-        if (old) {
-          old.remove();
-        }
-        wiki.createPage(name, newLocs[idx]).insertAfter(previous).each(wiki.refresh);
-      }
-      previous = $('.page').eq(idx);
+    if (action.type === 'fork' && (action.site != null)) {
+      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
     }
-    previous.nextAll().remove();
-    active.set($('.page').last());
-    return document.title = (_ref = $('.page:last').data('data')) != null ? _ref.title : void 0;
-  };
-
-  state.first = function() {
-    var firstUrlLocs, firstUrlPages, idx, oldPages, urlPage, _i, _len, _results;
-    state.setUrl();
-    firstUrlPages = state.urlPages();
-    firstUrlLocs = state.urlLocs();
-    oldPages = state.pagesInDom();
-    _results = [];
-    for (idx = _i = 0, _len = firstUrlPages.length; _i < _len; idx = ++_i) {
-      urlPage = firstUrlPages[idx];
-      if (__indexOf.call(oldPages, urlPage) < 0) {
-        if (urlPage !== '') {
-          _results.push(wiki.createPage(urlPage, firstUrlLocs[idx]).appendTo('.main'));
-        } else {
-          _results.push(void 0);
-        }
-      }
-    }
-    return _results;
   };
 
 }).call(this);
 
-},{"./active.coffee":9}],11:[function(require,module,exports){(function() {
+},{"./util.coffee":5}],11:[function(require,module,exports){(function() {
   var create;
 
   create = function(revIndex, data) {
@@ -1926,36 +1963,7 @@
 
 }).call(this);
 
-},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],12:[function(require,module,exports){(function() {
-  var util;
-
-  util = require('./util.coffee');
-
-  module.exports = function(journalElement, action) {
-    var actionElement, actionTitle, controls, pageElement, prev;
-    pageElement = journalElement.parents('.page:first');
-    if (action.type === 'edit') {
-      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
-    }
-    actionTitle = action.type;
-    if (action.date != null) {
-      actionTitle += " " + (util.formatElapsedTime(action.date));
-    }
-    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
-    controls = journalElement.children('.control-buttons');
-    if (controls.length > 0) {
-      actionElement.insertBefore(controls);
-    } else {
-      actionElement.appendTo(journalElement);
-    }
-    if (action.type === 'fork' && (action.site != null)) {
-      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5}],14:[function(require,module,exports){(function() {
+},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],14:[function(require,module,exports){(function() {
   var active, createSearch, util;
 
   util = require('./util.coffee');
