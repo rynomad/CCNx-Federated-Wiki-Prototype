@@ -6,7 +6,8 @@ neighborhood = require('./neighborhood.coffee')
 addToJournal = require('./addToJournal.coffee')
 wiki = require('./wiki.coffee')
 
-
+plugin.get 'favicon', (favicon) ->
+  favicon.create()
 
 server = location.host.split(':')[0]
 twinNdn = new NDN({host: server})
@@ -70,7 +71,7 @@ createFactory = ($page) ->
   before = wiki.getItem(beforeElement)
   pageHandler.put $page, {item: item, id: item.id, type: "add", after: before?.id}
 
-buildPageHeader = ({title,tooltip,header_href,favicon_src})->
+buildPageHeader = ({title,tooltip,header_href,favicon_src,favicon_id})->
   """<h1 title="#{tooltip}"><a href="#{header_href}"><img src="#{favicon_src}" height="32px" class="favicon"></a> #{title}</h1>"""
 
 emitHeader = ($header, $page, page) ->
@@ -84,21 +85,19 @@ emitHeader = ($header, $page, page) ->
     buildPageHeader
       tooltip: site
       header_href: "//#{site}/view/welcome-visitors#{viewHere}"
-      favicon_src: "http://#{site}/favicon.png"
+      favicon_src: "#{page.publisher.favicon}"
       title: page.title
   else
     buildPageHeader
       tooltip: location.host
       header_href: "/view/welcome-visitors#{viewHere}"
-      favicon_src: "/favicon.png"
+      favicon_src: "#{page.publisher.favicon}"
       title: page.title
 
   $header.append( pageHeader )
   
   unless isRemotePage
-    $('img.favicon',$page).error (e)->
-      plugin.get 'favicon', (favicon) ->
-        favicon.create()
+    $('#favicon').attr('href', page.publisher.favicon)
 
   if $page.attr('id').match /_rev/
     rev = page.journal.length-1
@@ -176,7 +175,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
         flags = for page, i in bin
           break if i >= 8
           """<img class="remote"
-            src="/favicon.png"
+            src="#{page.publisher.favicon}"
             data-slug="#{slug}"
             title="#{page.title}"
             data-ccnName="/sfw/#{page.title}/#{page.version}"
@@ -306,6 +305,7 @@ module.exports = refresh = wiki.refresh = ->
   }
 
   createGhostPage = ->
+ 
     title = $("""a[href="/#{slug}.html"]:last""").text() or slug
     page =
       'title': title
@@ -335,8 +335,15 @@ module.exports = refresh = wiki.refresh = ->
     if hits.length > 0
       page.story.push heading, hits...
       page.story[0].text = 'We could not find this page in the expected context.'
+      
+    NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->  
+      NeighborNetDB.tr(nndb, ['LocalID'], 'readonly').store('LocalID').index('name').get('anonymous', (content) ->
+        page.publisher = content
+        wiki.buildPage( page, undefined, $page ).addClass('ghost')
+      )
+    )
 
-    wiki.buildPage( page, undefined, $page ).addClass('ghost')
+    
 
   registerNeighbors = (data, site) ->
     if _.include ['local', 'origin', 'view', null, undefined], site
@@ -349,7 +356,10 @@ module.exports = refresh = wiki.refresh = ->
       neighborhood.registerNeighbor action.site if action.site?
 
   whenGotten = (data,siteFound) ->
-    wiki.buildPage( data, siteFound, $page )
+    if data.remote?
+      wiki.buildPage( data, siteFound, $page ).addClass('remote').addClass('ghost')
+    else
+      wiki.buildPage(data, siteFound, $page)
     registerNeighbors( data, siteFound )
 
   pageHandler.get

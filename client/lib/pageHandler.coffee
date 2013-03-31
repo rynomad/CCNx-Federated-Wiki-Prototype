@@ -2,6 +2,7 @@ util = require('./util.coffee')
 state = require('./state.coffee')
 revision = require('./revision.coffee')
 addToJournal = require('./addToJournal.coffee')
+plugin = require('./plugin.coffee')
 
 module.exports = pageHandler = {}
 
@@ -38,7 +39,9 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
       NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readonly').store('pageTwinContentObjects').index('fullName').get(slug, (content)  ->
         console.log content
         if content?
-          whenGotten(content.page, site)        
+          page = content.page
+          page.remote = true
+          whenGotten(page, site)        
       )
     )
   else
@@ -104,11 +107,9 @@ publishToIndexedDB = ( page, indexName, action) ->
   server = location.host.split(':')
   server = server[0]
   console.log NDNs[page.title]
+
   if NDNs[page.title] == undefined
     NDNs[page.title] = new NDN({host: server})
-    console.log 'created new NDN'
-  else
-    console.log 'using existing NDN'
   
   ndn = NDNs[page.title]
   
@@ -165,13 +166,14 @@ publishToIndexedDB = ( page, indexName, action) ->
   console.log page
 
   ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB ###
-  
-  console.log 'indexNNNNNNNNNNNNNNNNNNNNNNNNNNNName',indexName
  
   pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
   console.log pageItem
-  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
-    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->  
+    NeighborNetDB.tr(nndb, ['LocalID'], 'readonly').store('LocalID').index('name').get('anonymous', (content) ->
+      pageItem.page.publisher = content
+      NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+    )
   )
   for item in NDN.CSTable
     console.log NDN.CSTable
@@ -184,31 +186,9 @@ publishToIndexedDB = ( page, indexName, action) ->
       break
   if contentPublished != true
     ndn.registerPrefix(prefix, putClosure)
-  ###
-  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
-    console.log 'testings'
-    NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').cursor((content, cursor)  ->
-      console.log content
-      if content?
-        NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').del(content.id)
-        NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
-        console.log 'indexedDB item replaced'
-        
-        for item in NDN.CSTable
-          console.log NDN.CSTable
-          console.log pageItem.page.title, item.closure.content
-          if pageItem.page.title == JSON.parse(item.closure.content).title
-            item.closure.content = JSON.stringify(pageItem.page)
-            item.closure.name = new Name(pageItem.fullName)
-            console.log 'closure content replaced'
-      else
-        NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
-        putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(pageItem.page), signedInfo)
-        ndn.registerPrefix(prefix, putClosure)
-      
-    )
-  )
-  ###
+    
+  #pageElement.find('h1 img').attr('src', page.publisher.favicon)
+
 pushToServer = (pageElement, pagePutInfo, action) ->
   console.log('pageElement:',pageElement.attr('id'))
   console.log('pagePutInfo:', pagePutInfo)
@@ -218,9 +198,6 @@ pushToServer = (pageElement, pagePutInfo, action) ->
   indexName = '/sfw/' + pagePutInfo.slug  
   publishToIndexedDB(page, indexName, action)
  
-  
-  
-  ### ### 
 
 
 pageHandler.put = (pageElement, action) ->
@@ -260,7 +237,7 @@ pageHandler.put = (pageElement, action) ->
   # update dom when forking
   if forkFrom
     # pull remote site closer to us
-    pageElement.find('h1 img').attr('src', '/favicon.png')
+    pageElement.find('h1 img').attr('src', page.publisher.favicon)
     pageElement.find('h1 a').attr('href', '/')
     pageElement.data('site', null)
     pageElement.removeClass('remote')
