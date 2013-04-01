@@ -6,11 +6,17 @@ plugin = require('./plugin.coffee')
 
 module.exports = pageHandler = {}
 
-pageFromLocalStorage = (slug)->
-  if json = localStorage[slug]
-    JSON.parse(json)
-  else
-    undefined
+pageFromTwinStorage = (slug, whenGotten)->
+  NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
+    console.log 'testings'
+    NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readonly').store('pageTwinContentObjects').index('fullName').get(slug, (content)  ->
+      console.log content
+      if content?
+        page = content.page
+        page.remote = true
+        whenGotten(page, 'remote')        
+    )
+  )
 
 
 
@@ -31,8 +37,9 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
       whenNotGotten()
   
   name = new Name(slug)
-
-  if name.components.length > 1
+  console.log 'localContext, ', localContext[0]
+  
+  if localContext[0] == 'twin'
     console.log 'console long name', name
     NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
       console.log 'testings'
@@ -72,10 +79,8 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
 
 pageHandler.get = ({whenGotten,whenNotGotten,pageInformation,ndn}) ->
 
-  unless pageInformation.site
-    if localPage = pageFromLocalStorage(pageInformation.slug)
-      localPage = revision.create pageInformation.rev, localPage if pageInformation.rev
-      return whenGotten( localPage, 'local' )
+#  unless pageInformation.site
+#    pageFromTwinStorage(pageInformation.slug, whenGotten)
 
   pageHandler.context = ['view'] unless pageHandler.context.length
   recursiveGet
@@ -106,7 +111,7 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
 publishToIndexedDB = ( page, indexName, action) ->
   server = location.host.split(':')
   server = server[0]
-  console.log NDNs[page.title]
+  #console.log NDNs[page.title]
 
   if NDNs[page.title] == undefined
     NDNs[page.title] = new NDN({host: server})
@@ -116,17 +121,17 @@ publishToIndexedDB = ( page, indexName, action) ->
   signedInfo = new SignedInfo()
   signedInfo.freshnessSeconds = 5
   timestamp = signedInfo.timestamp.msec
-  console.log(signedInfo.timestamp.msec)
+  #console.log(signedInfo.timestamp.msec)
 
   
   prefix = new Name(indexName)
   fullname = indexName + '/' + timestamp
   name = new Name(fullname)
   ccnName = new Name(fullname)
-  console.log('name: ', name)
+  #console.log('name: ', name)
 
 
-  console.log(prefix)
+  #console.log(prefix)
 
   page.version = timestamp
 
@@ -163,25 +168,28 @@ publishToIndexedDB = ( page, indexName, action) ->
   putClosure = new AsyncPutClosure(ndn, name, JSON.stringify(page), signedInfo)
   publishClosure = new PublishClosure(ndn)
   i = 0
-  console.log page
+  #console.log page
 
   ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB ###
  
   pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
-  console.log pageItem
+  #console.log pageItem
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->  
     NeighborNetDB.tr(nndb, ['LocalID'], 'readonly').store('LocalID').index('name').get('anonymous', (content) ->
       pageItem.page.publisher = content
+      pageItem.page.slug = pageItem.name
+      pageItem.page.isLocal = true
+     
       NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
     )
   )
   for item in NDN.CSTable
-    console.log NDN.CSTable
-    console.log pageItem.name, item.name
+    #console.log NDN.CSTable
+    #console.log pageItem.name, item.name
     if pageItem.name == item.name
       item.closure.content = JSON.stringify(pageItem.page)
       item.closure.name = new Name(pageItem.fullName)
-      console.log 'closure content replaced'
+      #console.log 'closure content replaced'
       contentPublished = true
       break
   if contentPublished != true
@@ -190,9 +198,9 @@ publishToIndexedDB = ( page, indexName, action) ->
   #pageElement.find('h1 img').attr('src', page.publisher.favicon)
 
 pushToServer = (pageElement, pagePutInfo, action) ->
-  console.log('pageElement:',pageElement.attr('id'))
-  console.log('pagePutInfo:', pagePutInfo)
-  console.log('action:', action)
+  #console.log('pageElement:',pageElement.attr('id'))
+  #console.log('pagePutInfo:', pagePutInfo)
+  #console.log('action:', action)
   page = pageElement.data('data')
 
   indexName = '/sfw/' + pagePutInfo.slug  
@@ -201,7 +209,7 @@ pushToServer = (pageElement, pagePutInfo, action) ->
 
 
 pageHandler.put = (pageElement, action) ->
-  console.log action
+  #console.log action
   checkedSite = () ->
     switch site = pageElement.data('site')
       when 'origin', 'local', 'view' then null

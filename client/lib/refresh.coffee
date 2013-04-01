@@ -135,18 +135,18 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
     )
   )
   
-
+  
   twinCallback = (json, version) ->
     if json != undefined
-      page = JSON.parse(json)
-      console.log page.title
-      page.version = version
+      twinPage = JSON.parse(json)
+      console.log twinPage.title
+      twinPage.version = version
       bin = if version > viewing then bins.newer
       else if version < viewing then bins.older
       else bins.same
-      if bin != bins.same
-        bin.push page
-      exclusions.push DataUtils.toNumbersFromString(page.version)
+      if twinPage.publisher.favicon != page.publisher.favicon
+        bin.push twinPage
+      exclusions.push DataUtils.toNumbersFromString(twinPage.version)
       console.log('exclusions ',exclusions)
 
       template.exclude = new Exclude(exclusions)
@@ -154,38 +154,48 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
       interest.exclude = template.exclude
       twinClosure = new ContentClosure(twinNdn, name, interest, twinCallback)
       console.log('bins  ',bins)
-      twins = []
-      slug = page.title
+      
       console.log slug
-      fullName = '/sfw/' + slug + '/' + page.version
+      fullName = '/sfw/' + slug + '/' + twinPage.version
       signedInfo = new SignedInfo()
       indexName = '/sfw/' + slug
-      console.log
-      pageItem = {name: indexName , fullName: fullName, signedInfo: signedInfo, page: page}
+      pageItem = {name: indexName , fullName: fullName, signedInfo: signedInfo, page: twinPage}
       
       NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
         NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readwrite').store('pageTwinContentObjects').add(pageItem)
+        NeighborNetDB.tr(nndb, ['LocalID'], 'readonly').store('LocalID').index('name').get('anonymous',(ident) ->
+          console.log 'ident, ', ident, twinPage.publisher
+          twins = []
+
+          for legend, bin of bins
+            console.log legend, bin
+            continue unless bin.length
+            bin.sort (a,b) ->
+              a.version < b.version
+            flags = for twinPage, i in bin
+              break if i >= 8
+              if ident.favicon != twinPage.publisher.favicon
+                context = 'twin'
+              else
+                context = 'view'
+              """<img class="remote"
+                src="#{twinPage.publisher.favicon}"
+                data-slug="#{slug}"
+                title="#{twinPage.title}"
+                data-localContext="#{context}"
+                data-ccnName="/sfw/#{slug}/#{twinPage.version}"
+                data-page='#{json}'>
+              """
+            twins.push "#{flags.join '&nbsp;'} #{legend}"
+          $page.find('.twins').html """<p>#{twins.join ", "}</p>""" if twins
+          console.log('twins',twins)
+          twinNdn.expressInterest(name, twinClosure, template)
+          console.log 'twinPage.title', twinPage.title
+        )
+      
+      
+        
       )
-      
-      
-      for legend, bin of bins
-        continue unless bin.length
-        bin.sort (a,b) ->
-          a.version < b.version
-        flags = for page, i in bin
-          break if i >= 8
-          """<img class="remote"
-            src="#{page.publisher.favicon}"
-            data-slug="#{slug}"
-            title="#{page.title}"
-            data-ccnName="/sfw/#{page.title}/#{page.version}"
-            data-page='#{json}'>
-          """
-        twins.push "#{flags.join '&nbsp;'} #{legend}"
-      $page.find('.twins').html """<p>#{twins.join ", "}</p>""" if twins
-      console.log('twins',twins)
-      twinNdn.expressInterest(name, twinClosure, template)
-      console.log 'page.title', page.title
     else
       i++
       console.log ('json == null for twins')
@@ -195,7 +205,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
 
   
 
-  if (viewing = Number(page.version))?
+  if (viewing = page.version)?
     bins = {newer:[], same:[], older:[]}
     twinNdn.expressInterest(name, twinClosure, template)
 

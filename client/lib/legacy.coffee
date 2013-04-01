@@ -211,10 +211,14 @@ $ ->
 
     .delegate 'img.remote', 'click', (e) ->
       console.log 'TWINS????????????????????????????????????????????????????????????????//'
-      name = $(e.target).data('ccnname')
-      slug = $(e.target).data('slug')
+
+      context = $(e.target).data('localcontext')
+      if context == 'view'
+         name = $(e.target).data('slug')
+      else
+         name = $(e.target).data('ccnname')
       console.log $(e.target)
-      pageHandler.context = [$(e.target).data('site')]
+      pageHandler.context = [context]
       finishClick e, name
 
     .delegate '.revision', 'dblclick', (e) ->
@@ -301,5 +305,5 @@ $ ->
 
   $('body').on 'new-neighbor-done', (e, neighbor) ->
     $('.page').each (index, element) ->
-      wiki.emitTwins $(element)
+      #wiki.emitTwins $(element)
 

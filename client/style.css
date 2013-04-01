@@ -63,6 +63,10 @@ img.remote,
   background-color: #cccccc;
 }
 
+img[data-localContext="view"]{
+  border: solid #8A0808 2px;
+}
+
 .neighbor .wait {
   -webkit-animation: rotatecw 2s linear infinite;
   -moz-animation: rotatecw 2s linear infinite;
