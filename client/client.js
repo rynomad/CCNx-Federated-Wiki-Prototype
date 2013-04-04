@@ -283,10 +283,19 @@
       }
     };
     doInternalLink = wiki.doInternalLink = function(name, page, site) {
+      var nameComponents;
       if (site == null) {
         site = null;
       }
-      name = wiki.asSlug(name);
+      console.log('ppppppppppppppppppppppppppppppppppppp', pageHandler.context[0]);
+      if (pageHandler.context[0] === "twin") {
+        console.log(name);
+        nameComponents = name.split('/');
+        name = nameComponents[2] + '#' + nameComponents[3];
+        console.log('naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame', name);
+      } else {
+        name = wiki.asSlug(name);
+      }
       if (page != null) {
         $(page).nextAll().remove();
       }
@@ -714,7 +723,6 @@
         console.log(content);
         if (content != null) {
           page = content.page;
-          page.remote = true;
           return whenGotten(page, 'remote');
         }
       });
@@ -747,18 +755,7 @@
     console.log('localContext, ', localContext[0]);
     if (localContext[0] === 'twin') {
       console.log('console long name', name);
-      return NeighborNetDB = sdb.req(NeighborNetDBschema, function(nndb) {
-        console.log('testings');
-        return NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readonly').store('pageTwinContentObjects').index('fullName').get(slug, function(content) {
-          var page;
-          console.log(content);
-          if (content != null) {
-            page = content.page;
-            page.remote = true;
-            return whenGotten(page, site);
-          }
-        });
-      });
+      return pageFromTwinStorage(slug, whenGotten);
     } else {
       name = new Name("/sfw/" + slug);
       interest = new Interest(name);
@@ -770,6 +767,7 @@
           console.log(content);
           if (content != null) {
             page = content.page;
+            console.log(page);
             return whenGotten(page, site);
           } else if (navigator.onLine === true) {
             return ndn.expressInterest(name, getClosure, template);
@@ -1096,7 +1094,158 @@
 
 }).call(this);
 
-},{"./active.coffee":9}],10:[function(require,module,exports){(function() {
+},{"./active.coffee":9}],7:[function(require,module,exports){(function() {
+  var getScript, plugin, scripts, util;
+
+  util = require('./util.coffee');
+
+  module.exports = plugin = {};
+
+  scripts = {};
+
+  getScript = wiki.getScript = function(url, callback) {
+    if (callback == null) {
+      callback = function() {};
+    }
+    if (scripts[url] != null) {
+      return callback();
+    } else {
+      /*
+      $.getScript(url)
+        .done ->
+          scripts[url] = true
+          callback()
+        .fail ->
+          callback()
+      */
+
+      return $.ajax({
+        cache: true,
+        dataType: "script",
+        url: url,
+        success: function() {
+          scripts[url] = true;
+          return callback();
+        }
+      });
+    }
+  };
+
+  plugin.get = wiki.getPlugin = function(name, callback) {
+    if (window.plugins[name]) {
+      return callback(window.plugins[name]);
+    }
+    return getScript("/plugins/" + name + "/" + name + ".js", function() {
+      if (window.plugins[name]) {
+        return callback(window.plugins[name]);
+      }
+      return getScript("/plugins/" + name + ".js", function() {
+        return callback(window.plugins[name]);
+      });
+    });
+  };
+
+  plugin["do"] = wiki.doPlugin = function(div, item, done) {
+    var error;
+    if (done == null) {
+      done = function() {};
+    }
+    error = function(ex) {
+      var errorElement;
+      errorElement = $("<div />").addClass('error');
+      errorElement.text(ex.toString());
+      return div.append(errorElement);
+    };
+    div.data('pageElement', div.parents(".page"));
+    div.data('item', item);
+    return plugin.get(item.type, function(script) {
+      try {
+        if (script == null) {
+          throw TypeError("Can't find plugin for '" + item.type + "'");
+        }
+        if (script.emit.length > 2) {
+          return script.emit(div, item, function() {
+            script.bind(div, item);
+            return done();
+          });
+        } else {
+          script.emit(div, item);
+          script.bind(div, item);
+          return done();
+        }
+      } catch (err) {
+        wiki.log('plugin error', err);
+        error(err);
+        return done();
+      }
+    });
+  };
+
+  wiki.registerPlugin = function(pluginName, pluginFn) {
+    return window.plugins[pluginName] = pluginFn($);
+  };
+
+  window.plugins = {
+    paragraph: {
+      emit: function(div, item) {
+        var text, _i, _len, _ref, _results;
+        _ref = item.text.split(/\n\n+/);
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          text = _ref[_i];
+          if (text.match(/\S/)) {
+            _results.push(div.append("<p>" + (wiki.resolveLinks(text)) + "</p>"));
+          } else {
+            _results.push(void 0);
+          }
+        }
+        return _results;
+      },
+      bind: function(div, item) {
+        return div.dblclick(function() {
+          return wiki.textEditor(div, item, null, true);
+        });
+      }
+    },
+    image: {
+      emit: function(div, item) {
+        item.text || (item.text = item.caption);
+        return div.append("<img class=thumbnail src=\"" + item.url + "\"> <p>" + (wiki.resolveLinks(item.text)) + "</p>");
+      },
+      bind: function(div, item) {
+        div.dblclick(function() {
+          return wiki.textEditor(div, item);
+        });
+        return div.find('img').dblclick(function() {
+          return wiki.dialog(item.text, this);
+        });
+      }
+    },
+    future: {
+      emit: function(div, item) {
+        var info, _i, _len, _ref, _results;
+        div.append("" + item.text + "<br><br><button class=\"create\">create</button> new blank page");
+        if (((info = wiki.neighborhood[location.host]) != null) && (info.sitemap != null)) {
+          _ref = info.sitemap;
+          _results = [];
+          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+            item = _ref[_i];
+            if (item.slug.match(/-template$/)) {
+              _results.push(div.append("<br><button class=\"create\" data-slug=" + item.slug + ">create</button> from " + (wiki.resolveLinks("[[" + item.title + "]]"))));
+            } else {
+              _results.push(void 0);
+            }
+          }
+          return _results;
+        }
+      },
+      bind: function(div, item) {}
+    }
+  };
+
+}).call(this);
+
+},{"./util.coffee":5}],10:[function(require,module,exports){(function() {
   var addToJournal, buildPageHeader, createFactory, emitHeader, emitTwins, handleDragging, initAddButton, initDragging, neighborhood, pageHandler, plugin, refresh, renderPageIntoPageElement, server, state, twinNdn, util, wiki,
     __slice = [].slice;
 
@@ -1264,6 +1413,7 @@
         twinPage = JSON.parse(json);
         console.log(twinPage.title);
         twinPage.version = version;
+        twinPage.remote = true;
         bin = version > viewing ? bins.newer : version < viewing ? bins.older : bins.same;
         if (twinPage.publisher.favicon !== page.publisher.favicon) {
           bin.push(twinPage);
@@ -1276,7 +1426,7 @@
         twinClosure = new ContentClosure(twinNdn, name, interest, twinCallback);
         console.log('bins  ', bins);
         console.log(slug);
-        fullName = '/sfw/' + slug + '/' + twinPage.version;
+        fullName = slug + '#' + twinPage.version;
         signedInfo = new SignedInfo();
         indexName = '/sfw/' + slug;
         pageItem = {
@@ -1551,158 +1701,7 @@
 
 }).call(this);
 
-},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],7:[function(require,module,exports){(function() {
-  var getScript, plugin, scripts, util;
-
-  util = require('./util.coffee');
-
-  module.exports = plugin = {};
-
-  scripts = {};
-
-  getScript = wiki.getScript = function(url, callback) {
-    if (callback == null) {
-      callback = function() {};
-    }
-    if (scripts[url] != null) {
-      return callback();
-    } else {
-      /*
-      $.getScript(url)
-        .done ->
-          scripts[url] = true
-          callback()
-        .fail ->
-          callback()
-      */
-
-      return $.ajax({
-        cache: true,
-        dataType: "script",
-        url: url,
-        success: function() {
-          scripts[url] = true;
-          return callback();
-        }
-      });
-    }
-  };
-
-  plugin.get = wiki.getPlugin = function(name, callback) {
-    if (window.plugins[name]) {
-      return callback(window.plugins[name]);
-    }
-    return getScript("/plugins/" + name + "/" + name + ".js", function() {
-      if (window.plugins[name]) {
-        return callback(window.plugins[name]);
-      }
-      return getScript("/plugins/" + name + ".js", function() {
-        return callback(window.plugins[name]);
-      });
-    });
-  };
-
-  plugin["do"] = wiki.doPlugin = function(div, item, done) {
-    var error;
-    if (done == null) {
-      done = function() {};
-    }
-    error = function(ex) {
-      var errorElement;
-      errorElement = $("<div />").addClass('error');
-      errorElement.text(ex.toString());
-      return div.append(errorElement);
-    };
-    div.data('pageElement', div.parents(".page"));
-    div.data('item', item);
-    return plugin.get(item.type, function(script) {
-      try {
-        if (script == null) {
-          throw TypeError("Can't find plugin for '" + item.type + "'");
-        }
-        if (script.emit.length > 2) {
-          return script.emit(div, item, function() {
-            script.bind(div, item);
-            return done();
-          });
-        } else {
-          script.emit(div, item);
-          script.bind(div, item);
-          return done();
-        }
-      } catch (err) {
-        wiki.log('plugin error', err);
-        error(err);
-        return done();
-      }
-    });
-  };
-
-  wiki.registerPlugin = function(pluginName, pluginFn) {
-    return window.plugins[pluginName] = pluginFn($);
-  };
-
-  window.plugins = {
-    paragraph: {
-      emit: function(div, item) {
-        var text, _i, _len, _ref, _results;
-        _ref = item.text.split(/\n\n+/);
-        _results = [];
-        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-          text = _ref[_i];
-          if (text.match(/\S/)) {
-            _results.push(div.append("<p>" + (wiki.resolveLinks(text)) + "</p>"));
-          } else {
-            _results.push(void 0);
-          }
-        }
-        return _results;
-      },
-      bind: function(div, item) {
-        return div.dblclick(function() {
-          return wiki.textEditor(div, item, null, true);
-        });
-      }
-    },
-    image: {
-      emit: function(div, item) {
-        item.text || (item.text = item.caption);
-        return div.append("<img class=thumbnail src=\"" + item.url + "\"> <p>" + (wiki.resolveLinks(item.text)) + "</p>");
-      },
-      bind: function(div, item) {
-        div.dblclick(function() {
-          return wiki.textEditor(div, item);
-        });
-        return div.find('img').dblclick(function() {
-          return wiki.dialog(item.text, this);
-        });
-      }
-    },
-    future: {
-      emit: function(div, item) {
-        var info, _i, _len, _ref, _results;
-        div.append("" + item.text + "<br><br><button class=\"create\">create</button> new blank page");
-        if (((info = wiki.neighborhood[location.host]) != null) && (info.sitemap != null)) {
-          _ref = info.sitemap;
-          _results = [];
-          for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-            item = _ref[_i];
-            if (item.slug.match(/-template$/)) {
-              _results.push(div.append("<br><button class=\"create\" data-slug=" + item.slug + ">create</button> from " + (wiki.resolveLinks("[[" + item.title + "]]"))));
-            } else {
-              _results.push(void 0);
-            }
-          }
-          return _results;
-        }
-      },
-      bind: function(div, item) {}
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5}],11:[function(require,module,exports){(function() {
+},{"./util.coffee":5,"./pageHandler.coffee":6,"./plugin.coffee":7,"./state.coffee":8,"./neighborhood.coffee":13,"./addToJournal.coffee":12,"./wiki.coffee":2}],11:[function(require,module,exports){(function() {
   var create;
 
   create = function(revIndex, data) {

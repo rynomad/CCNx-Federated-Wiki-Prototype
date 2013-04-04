@@ -145,7 +145,14 @@ $ ->
       textarea.focus()
 
   doInternalLink = wiki.doInternalLink = (name, page, site=null) ->
-    name = wiki.asSlug(name)
+    console.log 'ppppppppppppppppppppppppppppppppppppp',  pageHandler.context[0]
+    if pageHandler.context[0] == "twin"
+      console.log name
+      nameComponents = name.split('/')
+      name = nameComponents[2] + '#' + nameComponents[3]
+      console.log 'naaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaame', name
+    else
+      name = wiki.asSlug(name)
     $(page).nextAll().remove() if page?
     wiki.createPage(name,site)
       .appendTo($('.main'))

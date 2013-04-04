@@ -141,6 +141,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
       twinPage = JSON.parse(json)
       console.log twinPage.title
       twinPage.version = version
+      twinPage.remote = true
       bin = if version > viewing then bins.newer
       else if version < viewing then bins.older
       else bins.same
@@ -156,7 +157,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
       console.log('bins  ',bins)
       
       console.log slug
-      fullName = '/sfw/' + slug + '/' + twinPage.version
+      fullName = slug + '#' + twinPage.version
       signedInfo = new SignedInfo()
       indexName = '/sfw/' + slug
       pageItem = {name: indexName , fullName: fullName, signedInfo: signedInfo, page: twinPage}

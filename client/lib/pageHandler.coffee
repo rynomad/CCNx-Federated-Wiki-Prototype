@@ -13,7 +13,6 @@ pageFromTwinStorage = (slug, whenGotten)->
       console.log content
       if content?
         page = content.page
-        page.remote = true
         whenGotten(page, 'remote')        
     )
   )
@@ -41,16 +40,8 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
   
   if localContext[0] == 'twin'
     console.log 'console long name', name
-    NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->
-      console.log 'testings'
-      NeighborNetDB.tr(nndb, ['pageTwinContentObjects'], 'readonly').store('pageTwinContentObjects').index('fullName').get(slug, (content)  ->
-        console.log content
-        if content?
-          page = content.page
-          page.remote = true
-          whenGotten(page, site)        
-      )
-    )
+    pageFromTwinStorage(slug, whenGotten)
+
   else
     name = new Name("/sfw/#{slug}")
     interest = new Interest(name)
@@ -64,6 +55,7 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
         console.log content
         if content?
           page = content.page
+          console.log page
           whenGotten(page, site)
         else if navigator.onLine == true
           ndn.expressInterest(name, getClosure, template)
@@ -181,6 +173,7 @@ publishToIndexedDB = ( page, indexName, action) ->
       pageItem.page.isLocal = true
      
       NeighborNetDB.tr(nndb, ['pageContentObjects'], 'readwrite').store('pageContentObjects').put(pageItem)
+      
     )
   )
   for item in NDN.CSTable
@@ -195,7 +188,7 @@ publishToIndexedDB = ( page, indexName, action) ->
   if contentPublished != true
     ndn.registerPrefix(prefix, putClosure)
     
-  #pageElement.find('h1 img').attr('src', page.publisher.favicon)
+
 
 pushToServer = (pageElement, pagePutInfo, action) ->
   #console.log('pageElement:',pageElement.attr('id'))
