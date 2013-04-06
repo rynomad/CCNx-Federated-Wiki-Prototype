@@ -13,6 +13,7 @@ CACHE:
 /client.js
 /plugins/factory/factory.js
 /plugins/favicon/favicon.js
+/plugins/pagefold/pagefold.js
 /cacheManifest.js
 /neighborNet.manifest
 
