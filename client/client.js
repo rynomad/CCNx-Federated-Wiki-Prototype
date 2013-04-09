@@ -644,61 +644,6 @@
 
 }).call(this);
 
-},{}],9:[function(require,module,exports){(function() {
-  var active, findScrollContainer, scrollTo;
-
-  module.exports = active = {};
-
-  active.scrollContainer = void 0;
-
-  findScrollContainer = function() {
-    var scrolled;
-    scrolled = $("body, html").filter(function() {
-      return $(this).scrollLeft() > 0;
-    });
-    if (scrolled.length > 0) {
-      return scrolled;
-    } else {
-      return $("body, html").scrollLeft(12).filter(function() {
-        return $(this).scrollLeft() > 0;
-      }).scrollTop(0);
-    }
-  };
-
-  scrollTo = function(el) {
-    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
-    if ((_ref = active.scrollContainer) == null) {
-      active.scrollContainer = findScrollContainer();
-    }
-    bodyWidth = $("body").width();
-    minX = active.scrollContainer.scrollLeft();
-    maxX = minX + bodyWidth;
-    target = el.position().left;
-    width = el.outerWidth(true);
-    contentWidth = $(".page").outerWidth(true) * $(".page").size();
-    if (target < minX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target
-      });
-    } else if (target + width > maxX) {
-      return active.scrollContainer.animate({
-        scrollLeft: target - (bodyWidth - width)
-      });
-    } else if (maxX > $(".pages").outerWidth()) {
-      return active.scrollContainer.animate({
-        scrollLeft: Math.min(target, contentWidth - bodyWidth)
-      });
-    }
-  };
-
-  active.set = function(el) {
-    el = $(el);
-    $(".active").removeClass("active");
-    return scrollTo(el.addClass("active"));
-  };
-
-}).call(this);
-
 },{}],6:[function(require,module,exports){(function() {
   var addToJournal, pageFromTwinStorage, pageHandler, plugin, publishToIndexedDB, pushToLocal, pushToServer, recursiveGet, revision, state, util;
 
@@ -769,7 +714,11 @@
             page = content.page;
             console.log(page);
             return whenGotten(page, site);
+          } else if (navigator.onLine === true) {
+            return ndn.expressInterest(name, getClosure, template);
           } else {
+            whenNotGotten();
+            console.log('_____________ # ndn ELSE', ndn);
             return ndn.expressInterest(name, getClosure, template);
           }
         });
@@ -1128,7 +1077,62 @@
 
 }).call(this);
 
-},{"./util.coffee":5}],8:[function(require,module,exports){(function() {
+},{"./util.coffee":5}],9:[function(require,module,exports){(function() {
+  var active, findScrollContainer, scrollTo;
+
+  module.exports = active = {};
+
+  active.scrollContainer = void 0;
+
+  findScrollContainer = function() {
+    var scrolled;
+    scrolled = $("body, html").filter(function() {
+      return $(this).scrollLeft() > 0;
+    });
+    if (scrolled.length > 0) {
+      return scrolled;
+    } else {
+      return $("body, html").scrollLeft(12).filter(function() {
+        return $(this).scrollLeft() > 0;
+      }).scrollTop(0);
+    }
+  };
+
+  scrollTo = function(el) {
+    var bodyWidth, contentWidth, maxX, minX, target, width, _ref;
+    if ((_ref = active.scrollContainer) == null) {
+      active.scrollContainer = findScrollContainer();
+    }
+    bodyWidth = $("body").width();
+    minX = active.scrollContainer.scrollLeft();
+    maxX = minX + bodyWidth;
+    target = el.position().left;
+    width = el.outerWidth(true);
+    contentWidth = $(".page").outerWidth(true) * $(".page").size();
+    if (target < minX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target
+      });
+    } else if (target + width > maxX) {
+      return active.scrollContainer.animate({
+        scrollLeft: target - (bodyWidth - width)
+      });
+    } else if (maxX > $(".pages").outerWidth()) {
+      return active.scrollContainer.animate({
+        scrollLeft: Math.min(target, contentWidth - bodyWidth)
+      });
+    }
+  };
+
+  active.set = function(el) {
+    el = $(el);
+    $(".active").removeClass("active");
+    return scrollTo(el.addClass("active"));
+  };
+
+}).call(this);
+
+},{}],8:[function(require,module,exports){(function() {
   var active, state,
     __indexOf = [].indexOf || function(item) { for (var i = 0, l = this.length; i < l; i++) { if (i in this && this[i] === item) return i; } return -1; };
 
