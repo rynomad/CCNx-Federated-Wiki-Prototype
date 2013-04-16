@@ -47,7 +47,7 @@ Install and Launch
 ==================
 
 
-In order to run the server in it's current state, you'll need a local CCN daemon running. This is not a strict requirement of NDN-js, but rather of our implimentation. The server is only tested thus far on Ubuntu 12.04 LTS.
+In order to run the server in a production state, you'll want a local CCN daemon running. This is not a strict requirement of NDN-js, but rather of our implimentation. For this prototype, we've coded the server to point to the ccn router that is powering rosewiki.org. The server is only tested thus far on Ubuntu 12.04 LTS.
 
 * https://www.ccnx.org/software-download-information-request/download-releases/
 * http://blog.rungeek.com/post/1711470902/project-ccnx-how-to
