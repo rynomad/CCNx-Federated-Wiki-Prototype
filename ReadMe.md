@@ -1,7 +1,9 @@
-Content Centric Wiki Goals
+This is the prototype build of CCNx Federated Wiki. If you are using chrome 25+, you can test drive the prototype at leela.rosewiki.org
+
+CCNx Federated Wiki Goals
 ==========================
 
-Content Centric Wiki is a port of Ward Cunninghams Smallest Federated Wiki, modified to federate via Content Centric Networking via NDN-js. The concept has proven to be workable, though it will be some time before it is useable. This is the first of many projects envisioned to run over Nei.ghbor.Net, a cooperatively administered, globaly scaled, locally-focused CCN network...
+CCNx Federated Wiki is a port of Ward Cunninghams Smallest Federated Wiki, modified to federate via Content Centric Networking via NDN-js. The concept has proven to be workable, though it will be some time before it is useable. This is the first of many projects envisioned to run over Nei.ghbor.Net, a cooperatively administered, globaly scaled, locally-focused CCN network...
 
 We imagine two components:
 
@@ -26,21 +28,9 @@ First you will want to get familiar with the projects listed above. There are nu
 
 * http://wardcunningham.github.com
 
-CCW retains as much of the frontend UI from SFW as possible, so you may want to read through the end-user how-to documentation for that project, which is itself written in a federated wiki:
+CFW retains as much of the frontend UI from SFW as possible, so you may want to read through the end-user how-to documentation for that project, which is itself written in a federated wiki:
 
 * http://fed.wiki.org/how-to-wiki.html
-
-Once you know where we are and how we got there, you could peruse the project roadmap. This and a number of other forward looking pages are kept in the project's GitHub wiki:
-
-* [Project Roadmap](https://github.com/rynomad/SFCCW2)
-
-When you start reading code you'll want to start with the "reference" server implementation. This is coded in Ruby as a Sinatra application. There are other server implementations but the Ruby code is as close as we have to a specification as to what it means to be a federated wiki server:
-
-* [/server/sinatra](https://github.com/WardCunningham/Smallest-Federated-Wiki/tree/master/server/sinatra)
-
-The next code reading stop is the client side javascript which is coded in the punctuation friendly dialect [CoffeeScript](http://jashkenas.github.com/coffee-script/):
-
-* [/client](https://github.com/WardCunningham/Smallest-Federated-Wiki/tree/master/client)
 
 Code contributions are always welcome. We're developing using the `fork and pull request` model supported so well by GitHub. Please read through their excellent help to make sure you know what's expected of you:
 

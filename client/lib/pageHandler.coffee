@@ -57,12 +57,23 @@ recursiveGet = ({pageInformation, whenGotten, whenNotGotten, localContext, ndn})
           page = content.page
           console.log page
           whenGotten(page, site)
+          ###
+          repoNdn = ndn
+          repoName = new Name(content.fullName + '/%C1.R.sw/%C1.N%00%11%01%01%01%01%11%10')
+          repoName.addSegment(0)
+          repoInterest = new Interest(repoName)
+          console.log repoInterest
+          repoClosure = new ContentClosure(repoNdn, repoName, repoInterest, (contentobj) -> 
+            console.log contentobj
+          )
+          repoNdn.expressInterest(repoName, repoClosure)
+          ###
+
         else if navigator.onLine == true
           ndn.expressInterest(name, getClosure, template)
         else
           whenNotGotten()
           console.log '_____________ # ndn ELSE', ndn
-          ndn.expressInterest(name, getClosure, template)
       )
     )
   
@@ -102,8 +113,7 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
 
   
 publishToIndexedDB = ( page, indexName, action) ->
-  server = location.host.split(':')
-  server = server[0]
+  server = '71.196.137.139'
   #console.log NDNs[page.title]
 
   if NDNs[page.title] == undefined
@@ -118,7 +128,7 @@ publishToIndexedDB = ( page, indexName, action) ->
 
   
   prefix = new Name(indexName)
-  fullname = indexName + '/' + timestamp
+  fullname = indexName + '/' + timestamp 
   name = new Name(fullname)
   ccnName = new Name(fullname)
   #console.log('name: ', name)
@@ -165,7 +175,7 @@ publishToIndexedDB = ( page, indexName, action) ->
 
   ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB ###
  
-  pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
+  pageItem = {name: indexName , fullName: (fullname), signedInfo: signedInfo, page: page}
   #console.log pageItem
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->  
     NeighborNetDB.tr(nndb, ['LocalID'], 'readonly').store('LocalID').index('name').get('anonymous', (content) ->
@@ -182,12 +192,15 @@ publishToIndexedDB = ( page, indexName, action) ->
     #console.log pageItem.name, item.name
     if pageItem.name == item.name
       item.closure.content = JSON.stringify(pageItem.page)
-      item.closure.name = new Name(pageItem.fullName)
+      item.closure.name = new Name(fullname)
       #console.log 'closure content replaced'
-      contentPublished = true
+      contentPublished = true      
+
       break
   if contentPublished != true
     ndn.registerPrefix(prefix, putClosure)
+
+
     
 
 

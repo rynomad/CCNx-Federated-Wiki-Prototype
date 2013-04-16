@@ -264,6 +264,7 @@ AsyncPutClosure.prototype.upcall = function(kind, upcallInfo) {
 			var interest = upcallInfo.interest;
 			if (interest.matches_name(this.name) == true) {
 	                        var si = this.signed;
+	                        si.finalBlockID = [0];
 		        	console.log('si',si);
 		        	var co = new ContentObject(this.name, si, this.content, new Signature());
 		        	co.sign();

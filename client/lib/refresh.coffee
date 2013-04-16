@@ -9,7 +9,7 @@ wiki = require('./wiki.coffee')
 plugin.get 'favicon', (favicon) ->
   favicon.create()
 
-server = location.host.split(':')[0]
+server = '71.196.137.139'
 twinNdn = new NDN({host: server})
 
 handleDragging = (evt, ui) ->
@@ -116,7 +116,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
   site = $page.data('site') or window.location.host
   site = window.location.host if site in ['view', 'origin']
   slug = wiki.asSlug page.title
-  server = location.host.split(':')[0]
+  server = '71.196.137.139'
   indexName = '/sfw/' + slug
   
   
@@ -184,8 +184,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
                 data-slug="#{slug}"
                 title="#{twinPage.title}"
                 data-localContext="#{context}"
-                data-ccnName="/sfw/#{slug}/#{twinPage.version}"
-                data-page='#{json}'>
+                data-ccnName="/sfw/#{slug}/#{twinPage.version}">
               """
             twins.push "#{flags.join '&nbsp;'} #{legend}"
           $page.find('.twins').html """<p>#{twins.join ", "}</p>""" if twins
@@ -281,7 +280,7 @@ wiki.buildPage = (data,siteFound,$page) ->
 
 
 module.exports = refresh = wiki.refresh = ->
-  server = location.host.split(':')[0]
+  server = '71.196.137.139'
   if NDNs['getndn'] == undefined
     NDNs['getndn'] = new NDN({host: server})
   $page = $(this)
@@ -301,6 +300,8 @@ module.exports = refresh = wiki.refresh = ->
       pubClosure = new AsyncPutClosure(pubndn, new Name(cursor.value.fullName), JSON.stringify(cursor.value.page), si)
       pubndn.registerPrefix(new Name(cursor.value.name), pubClosure)
       console.log 'published on pubndn', NDNs["#{ndnId}"]
+
+
       cursor.continue()
     )
   )
