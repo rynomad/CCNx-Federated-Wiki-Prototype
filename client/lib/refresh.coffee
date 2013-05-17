@@ -9,7 +9,7 @@ wiki = require('./wiki.coffee')
 plugin.get 'favicon', (favicon) ->
   favicon.create()
 
-server = '71.196.137.139'
+server = location.host.split(':')[0]
 twinNdn = new NDN({host: server})
 
 handleDragging = (evt, ui) ->
@@ -116,7 +116,7 @@ emitTwins = wiki.emitTwins = ($page, twinNdn) ->
   site = $page.data('site') or window.location.host
   site = window.location.host if site in ['view', 'origin']
   slug = wiki.asSlug page.title
-  server = '71.196.137.139'
+  server = location.host.split(':')[0]
   indexName = '/sfw/' + slug
   
   
@@ -280,7 +280,7 @@ wiki.buildPage = (data,siteFound,$page) ->
 
 
 module.exports = refresh = wiki.refresh = ->
-  server = '71.196.137.139'
+  server = location.host.split(':')[0]
   if NDNs['getndn'] == undefined
     NDNs['getndn'] = new NDN({host: server})
   $page = $(this)

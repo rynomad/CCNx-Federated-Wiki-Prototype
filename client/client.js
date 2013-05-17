@@ -986,7 +986,7 @@
     return favicon.create();
   });
 
-  server = '71.196.137.139';
+  server = location.host.split(':')[0];
 
   twinNdn = new NDN({
     host: server
@@ -1110,7 +1110,7 @@
       site = window.location.host;
     }
     slug = wiki.asSlug(page.title);
-    server = '71.196.137.139';
+    server = location.host.split(':')[0];
     indexName = '/sfw/' + slug;
     name = new Name(indexName);
     interest = new Interest(name);
@@ -1286,7 +1286,7 @@
 
   module.exports = refresh = wiki.refresh = function() {
     var $page, NeighborNetDB, createGhostPage, pageInformation, registerNeighbors, rev, slug, whenGotten, _ref;
-    server = '71.196.137.139';
+    server = location.host.split(':')[0];
     if (NDNs['getndn'] === void 0) {
       NDNs['getndn'] = new NDN({
         host: server
@@ -1559,7 +1559,7 @@
 
   publishToIndexedDB = function(page, indexName, action) {
     var NeighborNetDB, ccnName, contentPublished, fullname, i, idx, item, name, ndn, pageItem, prefix, publishClosure, putClosure, server, signedInfo, timestamp, _i, _len, _ref;
-    server = '71.196.137.139';
+    server = location.host.split(':')[0];
     if (NDNs[page.title] === void 0) {
       NDNs[page.title] = new NDN({
         host: server
@@ -1779,7 +1779,36 @@
 
 }).call(this);
 
-},{}],11:[function(require,module,exports){(function() {
+},{}],12:[function(require,module,exports){(function() {
+  var util;
+
+  util = require('./util.coffee');
+
+  module.exports = function(journalElement, action) {
+    var actionElement, actionTitle, controls, pageElement, prev;
+    pageElement = journalElement.parents('.page:first');
+    if (action.type === 'edit') {
+      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
+    }
+    actionTitle = action.type;
+    if (action.date != null) {
+      actionTitle += " " + (util.formatElapsedTime(action.date));
+    }
+    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
+    controls = journalElement.children('.control-buttons');
+    if (controls.length > 0) {
+      actionElement.insertBefore(controls);
+    } else {
+      actionElement.appendTo(journalElement);
+    }
+    if (action.type === 'fork' && (action.site != null)) {
+      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
+    }
+  };
+
+}).call(this);
+
+},{"./util.coffee":5}],11:[function(require,module,exports){(function() {
   var active, createSearch, neighborhood, nextAvailableFetch, nextFetchInterval, populateSiteInfoFor, util, _ref,
     __hasProp = {}.hasOwnProperty;
 
@@ -1927,36 +1956,7 @@
 
 }).call(this);
 
-},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],12:[function(require,module,exports){(function() {
-  var util;
-
-  util = require('./util.coffee');
-
-  module.exports = function(journalElement, action) {
-    var actionElement, actionTitle, controls, pageElement, prev;
-    pageElement = journalElement.parents('.page:first');
-    if (action.type === 'edit') {
-      prev = journalElement.find(".edit[data-id=" + (action.id || 0) + "]");
-    }
-    actionTitle = action.type;
-    if (action.date != null) {
-      actionTitle += " " + (util.formatElapsedTime(action.date));
-    }
-    actionElement = $("<a href=\"#\" /> ").addClass("action").addClass(action.type).text(util.symbols[action.type]).attr('title', actionTitle).attr('data-id', action.id || "0").data('action', action);
-    controls = journalElement.children('.control-buttons');
-    if (controls.length > 0) {
-      actionElement.insertBefore(controls);
-    } else {
-      actionElement.appendTo(journalElement);
-    }
-    if (action.type === 'fork' && (action.site != null)) {
-      return actionElement.css("background-image", "url(//" + action.site + "/favicon.png)").attr("href", "//" + action.site + "/" + (pageElement.attr('id')) + ".html").data("site", action.site).data("slug", pageElement.attr('id'));
-    }
-  };
-
-}).call(this);
-
-},{"./util.coffee":5}],14:[function(require,module,exports){(function() {
+},{"./active.coffee":9,"./util.coffee":5,"./search.coffee":14}],14:[function(require,module,exports){(function() {
   var active, createSearch, util;
 
   util = require('./util.coffee');

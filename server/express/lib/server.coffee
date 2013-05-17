@@ -396,8 +396,8 @@ module.exports = exports = (argv) ->
   setOwner null, (e) ->
     # Throw if you can't find the initial owner
     if e then throw e
-    app.listen(argv.p, argv.o if argv.o)
-    loga "Smallest Federated Wiki server listening on", app.address().port, "in mode:", app.settings.env
+    app.listen(3000, '0.0.0.0')
+    #loga "Smallest Federated Wiki server listening on", app.address().port, "in mode:", app.settings.env
 
   # Return app when called, so that it can be watched for events and shutdown with .close() externally.
   app

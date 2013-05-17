@@ -113,7 +113,7 @@ pushToLocal = (pageElement, pagePutInfo, action) ->
 
   
 publishToIndexedDB = ( page, indexName, action) ->
-  server = '71.196.137.139'
+  server = location.host.split(':')[0]
   #console.log NDNs[page.title]
 
   if NDNs[page.title] == undefined
@@ -175,7 +175,7 @@ publishToIndexedDB = ( page, indexName, action) ->
 
   ### Rather than registering new prefixes per page, just package the page and the paragraphs into content objects and put into the proper indexedDB ###
  
-  pageItem = {name: indexName , fullName: (fullname), signedInfo: signedInfo, page: page}
+  pageItem = {name: indexName , fullName: fullname, signedInfo: signedInfo, page: page}
   #console.log pageItem
   NeighborNetDB = sdb.req(NeighborNetDBschema, (nndb) ->  
     NeighborNetDB.tr(nndb, ['LocalID'], 'readonly').store('LocalID').index('name').get('anonymous', (content) ->

@@ -32,15 +32,6 @@ CFW retains as much of the frontend UI from SFW as possible, so you may want to 
 
 * http://fed.wiki.org/how-to-wiki.html
 
-Code contributions are always welcome. We're developing using the `fork and pull request` model supported so well by GitHub. Please read through their excellent help to make sure you know what's expected of you:
-
-* http://help.github.com/send-pull-requests/
-
-If you'd like to know what we think of your programming idea before you program it, just write up an Issue here on GitHub. You'll save us all some time if you read through open issues first:
-
-* [Open Issues](https://github.com/rynomad/SFCCW2/issues?sort=created&direction=desc&state=open&page=1)
-
-We're proud to be forked frequently. Go ahead and fork this project now. We're glad to have you.
 
 
 Install and Launch
@@ -58,7 +49,7 @@ The project is distributed as a GitHub repository. You will need a git client. L
 
 When you have git. Use it to clone the repository:
 
-	git clone git://github.com/rynomad/SFCCW2.git
+	git clone git://github.com/rynomad/CCNx-Federated-Wiki-Prototype.git
 
 start your ccn daemon and repository. take the Welcome Visitors page from the default data folder and put it in your repository under the prefix /NeighborNet/pages/welcome-visitors (you are free to use another prefix, but note that as of now this is how the server will request your page, so you must change the client side code accordingly) Now start your server.
 
